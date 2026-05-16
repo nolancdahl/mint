@@ -4,7 +4,7 @@ import { MintLeavesLogo } from './MintLeavesLogo'
 import { UserIcon } from './Icons'
 
 export const Header = ({ onProfileClick, onLogoClick, profileActive }) => (
-  <header style={{ background: COLORS.green, padding: '12px 18px 14px', borderRadius: '0 0 14px 14px' }}>
+  <header style={{ background: COLORS.green, padding: '12px 18px 14px', position: 'relative', paddingBottom: '22px' }}>
     <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <div onClick={onLogoClick} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', userSelect: 'none' }}>
         <MintLeavesLogo size={30} />
@@ -31,5 +31,15 @@ export const Header = ({ onProfileClick, onLogoClick, profileActive }) => (
         <UserIcon size={16} strokeWidth={1.6} />
       </button>
     </div>
+    {/* Tan arch dome cutting up into the green banner */}
+    <div style={{
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: '14px',
+      background: COLORS.cream,
+      borderRadius: '50% 50% 0 0 / 100% 100% 0 0',
+    }} />
   </header>
 )

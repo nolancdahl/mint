@@ -38,7 +38,7 @@ export const InspirationPage = ({ items, onSave, onDelete, onUpdate }) => {
 
   const addImage = async (file) => {
     if (!file.type.startsWith('image/')) return
-    const image = await fileToResizedDataUrl(file, 1200, 0.9)
+    const image = await fileToResizedDataUrl(file, 600, 0.7)
     onSave({ id: Date.now().toString() + Math.random().toString(36).slice(2), image, addedAt: Date.now(), analysis: null })
   }
 

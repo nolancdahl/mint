@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom'
 import { CropOverlay } from '../components/CropOverlay'
 
 const TAGS_KEY = 'garmint_wishlist_tags_v1'
-const DEFAULT_TAGS = ['T-Shirts', 'Jeans', 'Chinos', 'Jackets', 'Sweaters', 'Shorts', 'Soccer Shorts', 'Shoes', 'Hats', 'Accessories']
+const DEFAULT_TAGS = ['Accessories', 'Chinos', 'Hats', 'Jackets', 'Jeans', 'Shoes', 'Shorts', 'Soccer Shorts', 'Sweaters', 'T-Shirts']
 
 const loadTags = () => {
   const saved = loadJson(TAGS_KEY)
@@ -243,16 +243,20 @@ const AddTagPopup = ({ onAdd, onClose, existingTags }) => {
   )
 }
 
+const DEFAULT_COLORS = ['Beige', 'Black', 'Blue', 'Brown', 'Burgundy', 'Charcoal', 'Cream', 'Gold', 'Gray', 'Green', 'Ivory', 'Khaki', 'Maroon', 'Navy', 'Olive', 'Orange', 'Pink', 'Purple', 'Red', 'Rust', 'Silver', 'Tan', 'Teal', 'White', 'Yellow']
+
 const AddWishlistModal = ({ onClose, onSave }) => {
   const fileRef = useRef(null)
   const pasteRef = useRef(null)
   const [url, setUrl] = useState('')
+  const [brand, setBrand] = useState('')
   const [title, setTitle] = useState('')
   const [price, setPrice] = useState('')
   const [image, setImage] = useState(null)
   const [selectedCategories, setSelectedCategories] = useState([])
-  const [tags, setTags] = useState(loadTags)
+  const [tags, setTags] = useState(() => [...loadTags()].sort((a, b) => a.localeCompare(b)))
   const [selectedTags, setSelectedTags] = useState([])
+  const [selectedColors, setSelectedColors] = useState([])
   const [pasteZoneOpen, setPasteZoneOpen] = useState(false)
   const [addTagOpen, setAddTagOpen] = useState(false)
 
@@ -268,9 +272,15 @@ const AddWishlistModal = ({ onClose, onSave }) => {
     )
   }
 
+  const toggleColor = (c) => {
+    setSelectedColors((prev) =>
+      prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]
+    )
+  }
+
   const handleAddTag = (name) => {
     if (!tags.includes(name)) {
-      const updated = [...tags, name]
+      const updated = [...tags, name].sort((a, b) => a.localeCompare(b))
       setTags(updated)
       saveJson(TAGS_KEY, updated)
     }
@@ -304,21 +314,23 @@ const AddWishlistModal = ({ onClose, onSave }) => {
     setTimeout(() => { if (pasteRef.current) pasteRef.current.focus() }, 100)
   }
 
-  const canSave = !!(title || url) && selectedCategories.length > 0
+  const canSave = !!(title || url || brand || image)
 
   const handleSave = () => {
     if (!canSave) return
     onSave({
       id: Date.now().toString(),
       url: url || null,
-      title: title || url || 'Untitled',
+      title: title || brand || url || 'Untitled',
+      brand: brand || null,
       image,
       price: price || null,
       publisher: null,
       description: '',
-      category: selectedCategories[0],
+      category: selectedCategories[0] || null,
       categories: selectedCategories,
       tags: selectedTags,
+      colors: selectedColors,
       addedAt: new Date().toISOString(),
     })
   }
@@ -419,13 +431,23 @@ const AddWishlistModal = ({ onClose, onSave }) => {
             onChange={(e) => { if (e.target.files[0]) handleFile(e.target.files[0]); e.target.value = '' }}
           />
 
-          <FieldLabel required>Name</FieldLabel>
+          <FieldLabel>Brand</FieldLabel>
           <input
-            value={title} onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Taylor Stitch Chore Jacket"
+            value={brand} onChange={(e) => setBrand(e.target.value)}
             style={{
               width: '100%', padding: '12px 14px', borderRadius: '6px',
-              border: `1px solid ${COLORS.greenLine}`, background: COLORS.white,
+              border: `1px solid ${COLORS.greenLine}`, background: COLORS.creamDeep,
+              fontFamily: FONTS.sub, fontSize: '13px', color: COLORS.text,
+              outline: 'none', marginBottom: '12px',
+            }}
+          />
+
+          <FieldLabel>Name</FieldLabel>
+          <input
+            value={title} onChange={(e) => setTitle(e.target.value)}
+            style={{
+              width: '100%', padding: '12px 14px', borderRadius: '6px',
+              border: `1px solid ${COLORS.greenLine}`, background: COLORS.creamDeep,
               fontFamily: FONTS.sub, fontSize: '13px', color: COLORS.text,
               outline: 'none', marginBottom: '12px',
             }}
@@ -435,10 +457,9 @@ const AddWishlistModal = ({ onClose, onSave }) => {
           <div style={{ position: 'relative', marginBottom: '14px' }}>
             <input
               value={url} onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://..."
               style={{
                 width: '100%', padding: '12px 14px 12px 38px', borderRadius: '6px',
-                border: `1px solid ${COLORS.greenLine}`, background: COLORS.white,
+                border: `1px solid ${COLORS.greenLine}`, background: COLORS.creamDeep,
                 fontFamily: FONTS.sub, fontSize: '13px', color: COLORS.text, outline: 'none',
               }}
             />
@@ -451,11 +472,10 @@ const AddWishlistModal = ({ onClose, onSave }) => {
           <div style={{ position: 'relative', marginBottom: '14px' }}>
             <input
               value={price} onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ''))}
-              placeholder="0.00"
               inputMode="decimal"
               style={{
                 width: '100%', padding: '12px 14px 12px 30px', borderRadius: '6px',
-                border: `1px solid ${COLORS.greenLine}`, background: COLORS.white,
+                border: `1px solid ${COLORS.greenLine}`, background: COLORS.creamDeep,
                 fontFamily: FONTS.sub, fontSize: '13px', color: COLORS.text, outline: 'none',
               }}
             />
@@ -464,7 +484,7 @@ const AddWishlistModal = ({ onClose, onSave }) => {
             </div>
           </div>
 
-          <FieldLabel required>Categories</FieldLabel>
+          <FieldLabel>Categories</FieldLabel>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
             {SHOPPING_CATEGORIES.map((c) => (
               <button key={c} onClick={() => toggleCategory(c)} style={{
@@ -472,21 +492,20 @@ const AddWishlistModal = ({ onClose, onSave }) => {
                 fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em',
                 textTransform: 'uppercase', fontFamily: FONTS.sub,
                 border: `1px solid ${selectedCategories.includes(c) ? COLORS.green : COLORS.greenLine}`,
-                background: selectedCategories.includes(c) ? COLORS.green : 'transparent',
+                background: selectedCategories.includes(c) ? COLORS.green : COLORS.creamDeep,
                 color: selectedCategories.includes(c) ? COLORS.cream : COLORS.green,
                 cursor: 'pointer', transition: 'all 0.15s',
               }}>{c}</button>
             ))}
           </div>
 
-          <FieldLabel>Tags</FieldLabel>
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
-            {/* Add new tag button — first */}
+          <FieldLabel>Type</FieldLabel>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
             <button onClick={() => setAddTagOpen(true)} style={{
               padding: '6px 12px', borderRadius: '999px',
               fontSize: '11px', fontWeight: 600, letterSpacing: '0.06em',
               fontFamily: FONTS.sub, border: `1px dashed ${COLORS.greenLine}`,
-              background: 'transparent', color: COLORS.textMuted,
+              background: COLORS.creamDeep, color: COLORS.textMuted,
               cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
             }}>
               <PlusIcon size={12} strokeWidth={2} /> New
@@ -497,10 +516,25 @@ const AddWishlistModal = ({ onClose, onSave }) => {
                 fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em',
                 fontFamily: FONTS.sub,
                 border: `1px solid ${selectedTags.includes(t) ? COLORS.green : COLORS.greenLine}`,
-                background: selectedTags.includes(t) ? COLORS.green : 'transparent',
+                background: selectedTags.includes(t) ? COLORS.green : COLORS.creamDeep,
                 color: selectedTags.includes(t) ? COLORS.cream : COLORS.textMuted,
                 cursor: 'pointer', transition: 'all 0.15s',
               }}>{t}</button>
+            ))}
+          </div>
+
+          <FieldLabel>Colors</FieldLabel>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
+            {DEFAULT_COLORS.map((c) => (
+              <button key={c} onClick={() => toggleColor(c)} style={{
+                padding: '6px 12px', borderRadius: '999px',
+                fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em',
+                fontFamily: FONTS.sub,
+                border: `1px solid ${selectedColors.includes(c) ? COLORS.green : COLORS.greenLine}`,
+                background: selectedColors.includes(c) ? COLORS.green : COLORS.creamDeep,
+                color: selectedColors.includes(c) ? COLORS.cream : COLORS.textMuted,
+                cursor: 'pointer', transition: 'all 0.15s',
+              }}>{c}</button>
             ))}
           </div>
         </div>

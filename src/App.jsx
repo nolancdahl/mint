@@ -294,7 +294,15 @@ function AppShell() {
         <ItemDetailModal item={selectedClosetItem} onClose={() => setSelectedClosetItem(null)} onDelete={handleDeleteCloset} />
       )}
       {selectedWishlistItem && (
-        <WishlistItemDetail item={selectedWishlistItem} onClose={() => setSelectedWishlistItem(null)} onDelete={handleDeleteWishlist} />
+        <WishlistItemDetail
+          item={selectedWishlistItem}
+          onClose={() => setSelectedWishlistItem(null)}
+          onDelete={handleDeleteWishlist}
+          onUpdate={(updated) => {
+            setWishlistItems((prev) => prev.map((i) => i.id === updated.id ? updated : i))
+            setSelectedWishlistItem(updated)
+          }}
+        />
       )}
     </div>
   )

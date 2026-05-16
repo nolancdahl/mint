@@ -114,16 +114,15 @@ export const InspoDetailModal = ({ item, onClose, onDelete, onUpdate }) => {
         }}
       >
         <div style={{
-          width: '100%', flexShrink: 0, background: '#1a2f23',
+          width: '100%', flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '12px',
         }}>
           <img
             src={item.image}
             alt=""
             style={{
-              maxWidth: '100%', maxHeight: '55vh', objectFit: 'contain',
-              display: 'block', borderRadius: '4px',
+              width: '100%', maxHeight: '55vh', objectFit: 'cover',
+              display: 'block',
             }}
           />
         </div>

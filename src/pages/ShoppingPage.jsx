@@ -2,17 +2,24 @@ import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react'
 import { COLORS, FONTS } from '../lib/theme'
 import { SHOPPING_CATEGORIES } from '../lib/constants'
 import { FieldLabel } from '../components/Primitives'
-import { LinkIcon, PlusIcon, XIcon, ClipboardIcon, ChevronDown, GridIcon } from '../components/Icons'
+import { LinkIcon, PlusIcon, XIcon, ClipboardIcon, ChevronDown, GridIcon, TagIcon, TypeIcon } from '../components/Icons'
 import { fileToResizedDataUrl, loadJson, saveJson } from '../lib/storage'
 import { createPortal } from 'react-dom'
 import { CropOverlay } from '../components/CropOverlay'
 
 const TAGS_KEY = 'garmint_wishlist_tags_v1'
-const DEFAULT_TAGS = ['Accessories', 'Chinos', 'Hats', 'Jackets', 'Jeans', 'Shoes', 'Shorts', 'Soccer Shorts', 'Sweaters', 'T-Shirts']
+const COLORS_KEY = 'garmint_wishlist_colors_v1'
+const DEFAULT_TAGS = ['Chinos', 'Hats', 'Jackets', 'Jeans', 'Shoes', 'Shorts', 'Soccer Shorts', 'Sweaters', 'T-Shirts']
+const DEFAULT_COLORS = ['Beige', 'Black', 'Blue', 'Brown', 'Burgundy', 'Charcoal', 'Cream', 'Gold', 'Gray', 'Green', 'Ivory', 'Khaki', 'Maroon', 'Navy', 'Olive', 'Orange', 'Pink', 'Purple', 'Red', 'Rust', 'Silver', 'Tan', 'Teal', 'White', 'Yellow']
 
 const loadTags = () => {
   const saved = loadJson(TAGS_KEY)
   return saved.length > 0 ? saved : DEFAULT_TAGS
+}
+
+const loadColors = () => {
+  const saved = loadJson(COLORS_KEY)
+  return saved.length > 0 ? saved : DEFAULT_COLORS
 }
 
 const WishlistTile = ({ item, onClick, cols = 3, onUpdate }) => {
@@ -77,7 +84,8 @@ const WishlistTile = ({ item, onClick, cols = 3, onUpdate }) => {
           src={item.image}
           cropX={item.cropX}
           cropY={item.cropY}
-          onSave={(cx, cy) => onUpdate && onUpdate({ ...item, cropX: cx, cropY: cy })}
+          cropZoom={item.cropZoom}
+          onSave={(cx, cy, cz) => onUpdate && onUpdate({ ...item, cropX: cx, cropY: cy, cropZoom: cz })}
         >
           {overlay}
         </CropOverlay>
@@ -122,7 +130,7 @@ const FilterDropdown = ({ label, options, selected, onChange }) => {
   }
 
   return (
-    <div style={{ flex: 1, position: 'relative' }}>
+    <div style={{ flex: 1, position: 'relative', zIndex: open ? 52 : 'auto' }}>
       <button
         onClick={() => setOpen(!open)}
         style={{
@@ -178,8 +186,8 @@ const FilterDropdown = ({ label, options, selected, onChange }) => {
   )
 }
 
-// Add new tag mini-modal
-const AddTagPopup = ({ onAdd, onClose, existingTags }) => {
+// Add new item mini-modal (used for tags and colors)
+const AddItemPopup = ({ label, placeholder, onAdd, onClose }) => {
   const [value, setValue] = useState('')
   const handleAdd = () => {
     const trimmed = value.trim()
@@ -209,13 +217,13 @@ const AddTagPopup = ({ onAdd, onClose, existingTags }) => {
         <div style={{
           fontFamily: FONTS.sub, fontSize: '11px', textTransform: 'uppercase',
           letterSpacing: '0.18em', fontWeight: 600, color: COLORS.textMuted, marginBottom: '10px',
-        }}>New tag</div>
+        }}>{label}</div>
         <input
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAdd() } }}
-          placeholder="e.g. Linen, Workwear..."
+          placeholder={placeholder}
           style={{
             width: '100%', padding: '12px 14px', borderRadius: '6px',
             border: `1px solid ${COLORS.greenLine}`, background: COLORS.white,
@@ -243,8 +251,6 @@ const AddTagPopup = ({ onAdd, onClose, existingTags }) => {
   )
 }
 
-const DEFAULT_COLORS = ['Beige', 'Black', 'Blue', 'Brown', 'Burgundy', 'Charcoal', 'Cream', 'Gold', 'Gray', 'Green', 'Ivory', 'Khaki', 'Maroon', 'Navy', 'Olive', 'Orange', 'Pink', 'Purple', 'Red', 'Rust', 'Silver', 'Tan', 'Teal', 'White', 'Yellow']
-
 const AddWishlistModal = ({ onClose, onSave }) => {
   const fileRef = useRef(null)
   const pasteRef = useRef(null)
@@ -256,9 +262,11 @@ const AddWishlistModal = ({ onClose, onSave }) => {
   const [selectedCategories, setSelectedCategories] = useState([])
   const [tags, setTags] = useState(() => [...loadTags()].sort((a, b) => a.localeCompare(b)))
   const [selectedTags, setSelectedTags] = useState([])
+  const [colors, setColors] = useState(() => [...loadColors()].sort((a, b) => a.localeCompare(b)))
   const [selectedColors, setSelectedColors] = useState([])
   const [pasteZoneOpen, setPasteZoneOpen] = useState(false)
   const [addTagOpen, setAddTagOpen] = useState(false)
+  const [addColorOpen, setAddColorOpen] = useState(false)
 
   const toggleCategory = (c) => {
     setSelectedCategories((prev) =>
@@ -286,6 +294,17 @@ const AddWishlistModal = ({ onClose, onSave }) => {
     }
     if (!selectedTags.includes(name)) {
       setSelectedTags((prev) => [...prev, name])
+    }
+  }
+
+  const handleAddColor = (name) => {
+    if (!colors.includes(name)) {
+      const updated = [...colors, name].sort((a, b) => a.localeCompare(b))
+      setColors(updated)
+      saveJson(COLORS_KEY, updated)
+    }
+    if (!selectedColors.includes(name)) {
+      setSelectedColors((prev) => [...prev, name])
     }
   }
 
@@ -389,41 +408,29 @@ const AddWishlistModal = ({ onClose, onSave }) => {
                 <PlusIcon size={20} strokeWidth={1.5} />
                 <span style={{ fontFamily: FONTS.sub, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600 }}>Upload</span>
               </button>
-              <button onClick={openPasteZone} style={{
-                flex: 1, padding: '18px 12px', background: COLORS.creamDeep,
-                border: `1px dashed ${COLORS.greenLine}`, borderRadius: '8px',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
-                cursor: 'pointer', color: COLORS.textMuted,
-              }}>
-                <ClipboardIcon size={18} strokeWidth={1.5} />
-                <span style={{ fontFamily: FONTS.sub, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600 }}>Paste</span>
-              </button>
-            </div>
-          )}
-
-          {pasteZoneOpen && !image && (
-            <div style={{
-              marginBottom: '14px', padding: '12px', background: COLORS.creamDeep,
-              border: `1px solid ${COLORS.greenLine}`, borderRadius: '8px', textAlign: 'center',
-            }}>
-              <div style={{ fontFamily: FONTS.sub, fontSize: '12px', color: COLORS.textMuted, marginBottom: '8px' }}>
-                Long-press below and tap <strong>Paste</strong>
-              </div>
-              <div
-                ref={pasteRef} contentEditable onPaste={handlePasteEvent}
-                style={{
-                  minHeight: '48px', padding: '14px', background: COLORS.white,
-                  border: `1.5px dashed ${COLORS.green}`, borderRadius: '6px',
-                  fontFamily: FONTS.sub, fontSize: '13px', color: COLORS.textMuted,
-                  outline: 'none', WebkitUserSelect: 'text', userSelect: 'text',
-                }}
-              />
-              <button onClick={() => setPasteZoneOpen(false)} style={{
-                marginTop: '8px', padding: '6px 16px', background: 'transparent',
-                border: `1px solid ${COLORS.greenLine}`, borderRadius: '6px',
-                fontFamily: FONTS.sub, fontSize: '10px', letterSpacing: '0.1em',
-                textTransform: 'uppercase', fontWeight: 600, color: COLORS.textMuted, cursor: 'pointer',
-              }}>Cancel</button>
+              {!pasteZoneOpen ? (
+                <button onClick={openPasteZone} style={{
+                  flex: 1, padding: '18px 12px', background: COLORS.creamDeep,
+                  border: `1px dashed ${COLORS.greenLine}`, borderRadius: '8px',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+                  cursor: 'pointer', color: COLORS.textMuted,
+                }}>
+                  <ClipboardIcon size={18} strokeWidth={1.5} />
+                  <span style={{ fontFamily: FONTS.sub, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600 }}>Paste</span>
+                </button>
+              ) : (
+                <div
+                  ref={pasteRef} contentEditable onPaste={handlePasteEvent}
+                  style={{
+                    flex: 1, padding: '10px', background: COLORS.white,
+                    border: `1.5px dashed ${COLORS.greenLine}`, borderRadius: '8px',
+                    fontFamily: FONTS.sub, fontSize: '11px', color: COLORS.textFaint,
+                    outline: 'none', WebkitUserSelect: 'text', userSelect: 'text',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    textAlign: 'center', minHeight: 0,
+                  }}
+                />
+              )}
             </div>
           )}
 
@@ -432,26 +439,34 @@ const AddWishlistModal = ({ onClose, onSave }) => {
           />
 
           <FieldLabel>Brand</FieldLabel>
-          <input
-            value={brand} onChange={(e) => setBrand(e.target.value)}
-            style={{
-              width: '100%', padding: '12px 14px', borderRadius: '6px',
-              border: `1px solid ${COLORS.greenLine}`, background: COLORS.creamDeep,
-              fontFamily: FONTS.sub, fontSize: '13px', color: COLORS.text,
-              outline: 'none', marginBottom: '12px',
-            }}
-          />
+          <div style={{ position: 'relative', marginBottom: '12px' }}>
+            <input
+              value={brand} onChange={(e) => setBrand(e.target.value)}
+              style={{
+                width: '100%', padding: '12px 14px 12px 38px', borderRadius: '6px',
+                border: `1px solid ${COLORS.greenLine}`, background: COLORS.creamDeep,
+                fontFamily: FONTS.sub, fontSize: '13px', color: COLORS.text, outline: 'none',
+              }}
+            />
+            <div style={{ position: 'absolute', top: '50%', left: '12px', transform: 'translateY(-50%)', color: COLORS.textFaint }}>
+              <TagIcon size={15} />
+            </div>
+          </div>
 
           <FieldLabel>Name</FieldLabel>
-          <input
-            value={title} onChange={(e) => setTitle(e.target.value)}
-            style={{
-              width: '100%', padding: '12px 14px', borderRadius: '6px',
-              border: `1px solid ${COLORS.greenLine}`, background: COLORS.creamDeep,
-              fontFamily: FONTS.sub, fontSize: '13px', color: COLORS.text,
-              outline: 'none', marginBottom: '12px',
-            }}
-          />
+          <div style={{ position: 'relative', marginBottom: '12px' }}>
+            <input
+              value={title} onChange={(e) => setTitle(e.target.value)}
+              style={{
+                width: '100%', padding: '12px 14px 12px 38px', borderRadius: '6px',
+                border: `1px solid ${COLORS.greenLine}`, background: COLORS.creamDeep,
+                fontFamily: FONTS.sub, fontSize: '13px', color: COLORS.text, outline: 'none',
+              }}
+            />
+            <div style={{ position: 'absolute', top: '50%', left: '12px', transform: 'translateY(-50%)', color: COLORS.textFaint }}>
+              <TypeIcon size={15} />
+            </div>
+          </div>
 
           <FieldLabel>Product URL</FieldLabel>
           <div style={{ position: 'relative', marginBottom: '14px' }}>
@@ -502,13 +517,13 @@ const AddWishlistModal = ({ onClose, onSave }) => {
           <FieldLabel>Type</FieldLabel>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
             <button onClick={() => setAddTagOpen(true)} style={{
-              padding: '6px 12px', borderRadius: '999px',
-              fontSize: '11px', fontWeight: 600, letterSpacing: '0.06em',
+              padding: '6px 10px', borderRadius: '999px',
+              fontSize: '11px', fontWeight: 600,
               fontFamily: FONTS.sub, border: `1px dashed ${COLORS.greenLine}`,
               background: COLORS.creamDeep, color: COLORS.textMuted,
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <PlusIcon size={12} strokeWidth={2} /> New
+              <PlusIcon size={12} strokeWidth={2} />
             </button>
             {tags.map((t) => (
               <button key={t} onClick={() => toggleTag(t)} style={{
@@ -525,7 +540,16 @@ const AddWishlistModal = ({ onClose, onSave }) => {
 
           <FieldLabel>Colors</FieldLabel>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
-            {DEFAULT_COLORS.map((c) => (
+            <button onClick={() => setAddColorOpen(true)} style={{
+              padding: '6px 10px', borderRadius: '999px',
+              fontSize: '11px', fontWeight: 600,
+              fontFamily: FONTS.sub, border: `1px dashed ${COLORS.greenLine}`,
+              background: COLORS.creamDeep, color: COLORS.textMuted,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <PlusIcon size={12} strokeWidth={2} />
+            </button>
+            {colors.map((c) => (
               <button key={c} onClick={() => toggleColor(c)} style={{
                 padding: '6px 12px', borderRadius: '999px',
                 fontSize: '11px', fontWeight: 500, letterSpacing: '0.06em',
@@ -560,10 +584,19 @@ const AddWishlistModal = ({ onClose, onSave }) => {
         </div>
       </div>
       {addTagOpen && (
-        <AddTagPopup
-          existingTags={tags}
+        <AddItemPopup
+          label="New type"
+          placeholder="e.g. Linen, Workwear..."
           onAdd={handleAddTag}
           onClose={() => setAddTagOpen(false)}
+        />
+      )}
+      {addColorOpen && (
+        <AddItemPopup
+          label="New color"
+          placeholder="e.g. Coral, Sage..."
+          onAdd={handleAddColor}
+          onClose={() => setAddColorOpen(false)}
         />
       )}
     </div>,
@@ -583,7 +616,7 @@ const GridSizeControl = ({ cols, onChange }) => {
       {open && (
         <>
           <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
-          <div style={{
+          <div className="dropdown-enter" style={{
             position: 'absolute', top: '44px', right: 0, zIndex: 51,
             background: COLORS.cream, borderRadius: '10px',
             border: `1px solid ${COLORS.greenLine}`,
@@ -680,19 +713,25 @@ const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder, onUpdate }) =
     setHoverIdx(null)
   }, [dragIdx, hoverIdx, items, onReorder])
 
+  const mouseStart = useRef(null)
   const handleMouseDown = useCallback((e, idx) => {
     e.preventDefault()
-    longPressTimer.current = setTimeout(() => startDrag(idx, e.clientX, e.clientY), 200)
+    const cx = e.clientX, cy = e.clientY
+    mouseStart.current = { x: cx, y: cy }
+    longPressTimer.current = setTimeout(() => startDrag(idx, cx, cy), 200)
   }, [startDrag])
 
   useEffect(() => {
     const onMove = (e) => {
       if (dragIdx !== null) {
         moveDrag(e.clientX, e.clientY)
-      } else if (longPressTimer.current) {
-        // Cancel long press if mouse moves before drag starts
-        clearTimeout(longPressTimer.current)
-        longPressTimer.current = null
+      } else if (longPressTimer.current && mouseStart.current) {
+        const dx = e.clientX - mouseStart.current.x
+        const dy = e.clientY - mouseStart.current.y
+        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+          clearTimeout(longPressTimer.current)
+          longPressTimer.current = null
+        }
       }
     }
     const onUp = () => { if (dragIdx !== null) endDrag() }

@@ -2,7 +2,7 @@ import React, { useState, useRef, useMemo } from 'react'
 import { COLORS, FONTS } from '../lib/theme'
 import { SHOPPING_CATEGORIES } from '../lib/constants'
 import { FieldLabel } from '../components/Primitives'
-import { LinkIcon, PlusIcon, XIcon, ClipboardIcon, ChevronDown } from '../components/Icons'
+import { LinkIcon, PlusIcon, XIcon, ClipboardIcon, ChevronDown, GridIcon } from '../components/Icons'
 import { fileToResizedDataUrl, loadJson, saveJson } from '../lib/storage'
 import { createPortal } from 'react-dom'
 
@@ -487,10 +487,67 @@ const AddWishlistModal = ({ onClose, onSave }) => {
   )
 }
 
+const GRID_COLS_KEY = 'garmint_wishlist_cols'
+
+const GridSizeControl = ({ cols, onChange }) => {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ position: 'relative' }}>
+      <CircleButton onClick={() => setOpen(!open)}>
+        <GridIcon size={16} strokeWidth={1.6} />
+      </CircleButton>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
+          <div style={{
+            position: 'absolute', top: '44px', right: 0, zIndex: 51,
+            background: COLORS.cream, borderRadius: '10px',
+            border: `1px solid ${COLORS.greenLine}`,
+            boxShadow: '0 8px 24px rgba(19, 37, 27, 0.15)',
+            padding: '14px 16px', width: '180px',
+          }}>
+            <div style={{
+              fontFamily: FONTS.sub, fontSize: '10px', textTransform: 'uppercase',
+              letterSpacing: '0.16em', fontWeight: 600, color: COLORS.textMuted, marginBottom: '10px',
+            }}>
+              Columns: {cols}
+            </div>
+            <input
+              type="range"
+              min={2}
+              max={7}
+              value={cols}
+              onChange={(e) => onChange(Number(e.target.value))}
+              style={{
+                width: '100%', accentColor: COLORS.green, cursor: 'pointer',
+              }}
+            />
+            <div style={{
+              display: 'flex', justifyContent: 'space-between',
+              fontFamily: FONTS.sub, fontSize: '9px', color: COLORS.textFaint, marginTop: '2px',
+            }}>
+              <span>2</span><span>7</span>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 export const ShoppingPage = ({ items, pasteOpen, onPasteOpenChange, onSave, onSelectItem }) => {
   const [catFilter, setCatFilter] = useState([])
   const [tagFilter, setTagFilter] = useState([])
+  const [gridCols, setGridCols] = useState(() => {
+    const saved = localStorage.getItem(GRID_COLS_KEY)
+    return saved ? Number(saved) : 3
+  })
   const allTags = loadTags()
+
+  const handleGridColsChange = (n) => {
+    setGridCols(n)
+    localStorage.setItem(GRID_COLS_KEY, n)
+  }
 
   const filtered = useMemo(() => {
     let result = items
@@ -521,7 +578,8 @@ export const ShoppingPage = ({ items, pasteOpen, onPasteOpenChange, onSave, onSe
             What you're considering
           </p>
         </div>
-        <div style={{ marginTop: '4px' }}>
+        <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+          <GridSizeControl cols={gridCols} onChange={handleGridColsChange} />
           <CircleButton onClick={() => onPasteOpenChange(true)}>
             <PlusIcon size={18} strokeWidth={1.8} />
           </CircleButton>
@@ -552,7 +610,7 @@ export const ShoppingPage = ({ items, pasteOpen, onPasteOpenChange, onSave, onSe
           {items.length === 0 ? 'No items yet. Tap + to add something.' : 'No items match these filters.'}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${gridCols}, 1fr)`, gap: '10px' }}>
           {filtered.map((it) => (<WishlistTile key={it.id} item={it} onClick={() => onSelectItem(it)} />))}
         </div>
       )}

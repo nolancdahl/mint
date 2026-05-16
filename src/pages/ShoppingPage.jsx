@@ -9,6 +9,7 @@ import { CropOverlay } from '../components/CropOverlay'
 
 const TAGS_KEY = 'garmint_wishlist_tags_v1'
 const COLORS_KEY = 'garmint_wishlist_colors_v1'
+const CATEGORIES_KEY = 'garmint_wishlist_cats_v1'
 const DEFAULT_TAGS = ['Chinos', 'Hats', 'Jackets', 'Jeans', 'Shoes', 'Shorts', 'Soccer Shorts', 'Sweaters', 'T-Shirts']
 const DEFAULT_COLORS = ['Beige', 'Black', 'Blue', 'Brown', 'Burgundy', 'Charcoal', 'Cream', 'Gold', 'Gray', 'Green', 'Ivory', 'Khaki', 'Maroon', 'Navy', 'Olive', 'Orange', 'Pink', 'Purple', 'Red', 'Rust', 'Silver', 'Tan', 'Teal', 'White', 'Yellow']
 
@@ -20,6 +21,11 @@ const loadTags = () => {
 const loadColors = () => {
   const saved = loadJson(COLORS_KEY)
   return saved.length > 0 ? saved : DEFAULT_COLORS
+}
+
+const loadCategories = () => {
+  const saved = loadJson(CATEGORIES_KEY)
+  return saved.length > 0 ? saved : SHOPPING_CATEGORIES
 }
 
 // Get all images for an item (handles both legacy `image` and new `images` array)
@@ -75,7 +81,7 @@ const WishlistTile = ({ item, onClick, cols = 3, onUpdate }) => {
             fontFamily: FONTS.sub, fontSize: '10px', padding: '3px 10px',
             background: 'rgba(46,204,113,0.35)', borderRadius: '999px',
             fontWeight: 700, letterSpacing: '0.02em',
-          }}>${item.price}</span>
+          }}>${Math.ceil(Number(item.price))}</span>
         )}
         {item.tags && item.tags.map((t) => (
           <span key={t} style={{
@@ -202,7 +208,19 @@ const FilterDropdown = ({ label, options, selected, onChange }) => {
         <span style={{
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>{displayLabel}</span>
-        <ChevronDown size={14} strokeWidth={2} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+          {selected.length > 0 && (
+            <span
+              onClick={(e) => { e.stopPropagation(); onChange([]) }}
+              style={{
+                width: '16px', height: '16px', borderRadius: '50%',
+                background: 'rgba(244,238,224,0.3)', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+              }}
+            ><XIcon size={10} strokeWidth={2.5} /></span>
+          )}
+          <ChevronDown size={14} strokeWidth={2} />
+        </div>
       </button>
       {open && (
         <>
@@ -313,6 +331,7 @@ const AddWishlistModal = ({ onClose, onSave }) => {
   const [price, setPrice] = useState('')
   const [images, setImages] = useState([])
   const [previewIdx, setPreviewIdx] = useState(0)
+  const [categories, setCategories] = useState(() => [...loadCategories()].sort((a, b) => a.localeCompare(b)))
   const [selectedCategories, setSelectedCategories] = useState([])
   const [tags, setTags] = useState(() => [...loadTags()].sort((a, b) => a.localeCompare(b)))
   const [selectedTags, setSelectedTags] = useState([])
@@ -321,6 +340,7 @@ const AddWishlistModal = ({ onClose, onSave }) => {
   const [pasteZoneOpen, setPasteZoneOpen] = useState(false)
   const [addTagOpen, setAddTagOpen] = useState(false)
   const [addColorOpen, setAddColorOpen] = useState(false)
+  const [addCatOpen, setAddCatOpen] = useState(false)
 
   const toggleCategory = (c) => {
     setSelectedCategories((prev) =>
@@ -362,6 +382,17 @@ const AddWishlistModal = ({ onClose, onSave }) => {
     }
   }
 
+  const handleAddCategory = (name) => {
+    if (!categories.includes(name)) {
+      const updated = [...categories, name].sort((a, b) => a.localeCompare(b))
+      setCategories(updated)
+      saveJson(CATEGORIES_KEY, updated)
+    }
+    if (!selectedCategories.includes(name)) {
+      setSelectedCategories((prev) => [...prev, name])
+    }
+  }
+
   const handleFile = async (file) => {
     if (!file.type.startsWith('image/')) return
     const dataUrl = await fileToResizedDataUrl(file, 800, 0.85)
@@ -382,7 +413,7 @@ const AddWishlistModal = ({ onClose, onSave }) => {
         if (file) await handleFile(file)
       }
     }
-    setPasteZoneOpen(false)
+    if (pasteRef.current) pasteRef.current.innerHTML = ''
   }
 
   const openPasteZone = () => {
@@ -592,7 +623,17 @@ const AddWishlistModal = ({ onClose, onSave }) => {
 
           <FieldLabel>Categories</FieldLabel>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
-            {SHOPPING_CATEGORIES.map((c) => (
+            <button onClick={() => setAddCatOpen(true)} style={{
+              width: '28px', height: '28px', borderRadius: '50%', padding: 0,
+              fontSize: '11px', fontWeight: 600,
+              fontFamily: FONTS.sub, border: `1px dashed ${COLORS.greenLine}`,
+              background: COLORS.creamDeep, color: COLORS.textMuted,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <PlusIcon size={12} strokeWidth={2} />
+            </button>
+            {categories.map((c) => (
               <button key={c} onClick={() => toggleCategory(c)} style={{
                 padding: '7px 14px', borderRadius: '999px',
                 fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em',
@@ -608,11 +649,12 @@ const AddWishlistModal = ({ onClose, onSave }) => {
           <FieldLabel>Type</FieldLabel>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
             <button onClick={() => setAddTagOpen(true)} style={{
-              padding: '6px 10px', borderRadius: '999px',
+              width: '28px', height: '28px', borderRadius: '50%', padding: 0,
               fontSize: '11px', fontWeight: 600,
               fontFamily: FONTS.sub, border: `1px dashed ${COLORS.greenLine}`,
               background: COLORS.creamDeep, color: COLORS.textMuted,
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
             }}>
               <PlusIcon size={12} strokeWidth={2} />
             </button>
@@ -632,11 +674,12 @@ const AddWishlistModal = ({ onClose, onSave }) => {
           <FieldLabel>Colors</FieldLabel>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
             <button onClick={() => setAddColorOpen(true)} style={{
-              padding: '6px 10px', borderRadius: '999px',
+              width: '28px', height: '28px', borderRadius: '50%', padding: 0,
               fontSize: '11px', fontWeight: 600,
               fontFamily: FONTS.sub, border: `1px dashed ${COLORS.greenLine}`,
               background: COLORS.creamDeep, color: COLORS.textMuted,
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
             }}>
               <PlusIcon size={12} strokeWidth={2} />
             </button>
@@ -688,6 +731,14 @@ const AddWishlistModal = ({ onClose, onSave }) => {
           placeholder="e.g. Coral, Sage..."
           onAdd={handleAddColor}
           onClose={() => setAddColorOpen(false)}
+        />
+      )}
+      {addCatOpen && (
+        <AddItemPopup
+          label="New category"
+          placeholder="e.g. Formal, Streetwear..."
+          onAdd={handleAddCategory}
+          onClose={() => setAddCatOpen(false)}
         />
       )}
     </div>,
@@ -932,11 +983,14 @@ const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder, onUpdate }) =
 export const ShoppingPage = ({ items, pasteOpen, onPasteOpenChange, onSave, onSelectItem, onReorder, onUpdate }) => {
   const [catFilter, setCatFilter] = useState([])
   const [tagFilter, setTagFilter] = useState([])
+  const [colorFilter, setColorFilter] = useState([])
   const [gridCols, setGridCols] = useState(() => {
     const saved = localStorage.getItem(GRID_COLS_KEY)
     return saved ? Number(saved) : 3
   })
   const allTags = loadTags()
+  const allCategories = loadCategories()
+  const allColors = loadColors()
 
   const handleGridColsChange = (n) => {
     setGridCols(n)
@@ -954,8 +1008,11 @@ export const ShoppingPage = ({ items, pasteOpen, onPasteOpenChange, onSave, onSe
     if (tagFilter.length > 0) {
       result = result.filter((i) => i.tags && i.tags.some((t) => tagFilter.includes(t)))
     }
+    if (colorFilter.length > 0) {
+      result = result.filter((i) => i.colors && i.colors.some((c) => colorFilter.includes(c)))
+    }
     return result
-  }, [catFilter, tagFilter, items])
+  }, [catFilter, tagFilter, colorFilter, items])
 
   return (
     <div>
@@ -983,16 +1040,22 @@ export const ShoppingPage = ({ items, pasteOpen, onPasteOpenChange, onSave, onSe
       {/* Two filter dropdowns */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
         <FilterDropdown
-          label="All categories"
-          options={SHOPPING_CATEGORIES}
+          label="All Categories"
+          options={allCategories}
           selected={catFilter}
           onChange={setCatFilter}
         />
         <FilterDropdown
-          label="Any tag"
+          label="All Styles"
           options={allTags}
           selected={tagFilter}
           onChange={setTagFilter}
+        />
+        <FilterDropdown
+          label="All Colors"
+          options={allColors}
+          selected={colorFilter}
+          onChange={setColorFilter}
         />
       </div>
 

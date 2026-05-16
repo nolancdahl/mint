@@ -93,6 +93,10 @@ function AppShell() {
   const [selectedClosetItem, setSelectedClosetItem] = useState(null)
   const [selectedWishlistItem, setSelectedWishlistItem] = useState(null)
   const [inspoItems, setInspoItems] = useState(() => loadJson(INSPO_KEY))
+  const [profilePhoto, setProfilePhoto] = useState(() => {
+    const p = loadJson('garmint_profile_v1')
+    return (p && typeof p === 'object' && !Array.isArray(p)) ? p.photo || null : null
+  })
 
   // Track which keys were just updated from Firestore (per-key, not shared boolean)
   const firestoreKeys = useRef(new Set())
@@ -174,7 +178,7 @@ function AppShell() {
     { id: 'stats', label: 'Insights', icon: BarChartIcon },
     { id: 'shopping', label: 'Shop', icon: ShoppingBagIcon },
     { id: 'inspiration', label: 'Inspo', icon: ImageIcon },
-    { id: 'expert', label: 'Expert', icon: SparklesIcon },
+    { id: 'expert', label: 'Lorenzo', icon: SparklesIcon },
   ]
 
   const onProfilePage = currentPage === 'profile'
@@ -248,7 +252,7 @@ function AppShell() {
       case 'expert':
         return <ExpertPage />
       case 'profile':
-        return <ProfilePage user={user} onSignOut={handleSignOut} />
+        return <ProfilePage user={user} onSignOut={handleSignOut} profilePhoto={profilePhoto} onProfilePhotoChange={setProfilePhoto} />
       default:
         return <HomePage closetCount={closetItems.length} wishlistCount={wishlistItems.length} onAddPiece={openCloset} />
     }
@@ -261,6 +265,7 @@ function AppShell() {
         onProfileClick={() => { setCurrentPage('profile'); closeAll() }}
         onLogoClick={() => { setCurrentPage('home'); closeAll() }}
         profileActive={onProfilePage}
+        profilePhoto={profilePhoto}
       />
       <main key={currentPage} className="page-enter" style={{ padding: '18px 18px 32px', maxWidth: '1100px', margin: '0 auto' }}>
         {renderPage()}

@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { COLORS, FONTS } from '../lib/theme'
 import { SHOPPING_CATEGORIES } from '../lib/constants'
-import { TrashIcon, ArrowRightIcon, EditIcon, XIcon, PlusIcon, ClipboardIcon, LinkIcon, TagIcon, TypeIcon, ChevronLeft, ChevronRight } from './Icons'
+import { TrashIcon, ArrowRightIcon, PenIcon, XIcon, PlusIcon, ClipboardIcon, LinkIcon, TagIcon, TypeIcon, ChevronLeft, ChevronRight } from './Icons'
 import { FieldLabel } from './Primitives'
 import { fileToResizedDataUrl, loadJson, saveJson } from '../lib/storage'
 
@@ -346,11 +346,12 @@ const EditWishlistModal = ({ item, onClose, onSave }) => {
           <FieldLabel>Type</FieldLabel>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
             <button onClick={() => setAddTagOpen(true)} style={{
-              padding: '6px 10px', borderRadius: '999px',
+              width: '28px', height: '28px', borderRadius: '50%', padding: 0,
               fontSize: '11px', fontWeight: 600,
               fontFamily: FONTS.sub, border: `1px dashed ${COLORS.greenLine}`,
               background: COLORS.creamDeep, color: COLORS.textMuted,
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
             }}>
               <PlusIcon size={12} strokeWidth={2} />
             </button>
@@ -370,11 +371,12 @@ const EditWishlistModal = ({ item, onClose, onSave }) => {
           <FieldLabel>Colors</FieldLabel>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
             <button onClick={() => setAddColorOpen(true)} style={{
-              padding: '6px 10px', borderRadius: '999px',
+              width: '28px', height: '28px', borderRadius: '50%', padding: 0,
               fontSize: '11px', fontWeight: 600,
               fontFamily: FONTS.sub, border: `1px dashed ${COLORS.greenLine}`,
               background: COLORS.creamDeep, color: COLORS.textMuted,
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
             }}>
               <PlusIcon size={12} strokeWidth={2} />
             </button>
@@ -530,9 +532,64 @@ export const WishlistItemDetail = ({ item, onClose, onDelete, onUpdate }) => {
 
         {/* Scrollable content */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '18px 20px' }}>
-          {/* Title */}
-          <div className="title-bold" style={{ fontSize: '20px', color: COLORS.text, lineHeight: 1.15 }}>
-            {item.title}
+          {/* Title row with edit/trash buttons */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
+            <div style={{ flex: 1 }}>
+              <div className="title-bold" style={{ fontSize: '20px', color: COLORS.text, lineHeight: 1.15 }}>
+                {item.title}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '6px', flexShrink: 0, marginTop: '2px' }}>
+              {confirming ? (
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setConfirming(false) }}
+                    style={{
+                      padding: '5px 12px', background: 'transparent',
+                      border: `1px solid ${COLORS.greenLine}`, borderRadius: '999px',
+                      fontFamily: FONTS.sub, fontSize: '9px', letterSpacing: '0.1em',
+                      textTransform: 'uppercase', fontWeight: 600,
+                      color: COLORS.green, cursor: 'pointer',
+                    }}
+                  >Keep</button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDelete(item.id) }}
+                    style={{
+                      padding: '5px 12px', background: COLORS.danger,
+                      border: 'none', borderRadius: '999px',
+                      fontFamily: FONTS.sub, fontSize: '9px', letterSpacing: '0.1em',
+                      textTransform: 'uppercase', fontWeight: 600,
+                      color: COLORS.cream, cursor: 'pointer',
+                    }}
+                  >Delete</button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditing(true) }}
+                    style={{
+                      width: '30px', height: '30px', borderRadius: '50%',
+                      background: 'transparent', border: `1px solid ${COLORS.greenLine}`,
+                      color: COLORS.green, display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', cursor: 'pointer',
+                    }}
+                  >
+                    <PenIcon size={12} strokeWidth={2} />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setConfirming(true) }}
+                    style={{
+                      width: '30px', height: '30px', borderRadius: '50%',
+                      background: 'transparent', border: `1px solid ${COLORS.greenLine}`,
+                      color: COLORS.danger, display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', cursor: 'pointer',
+                    }}
+                  >
+                    <TrashIcon size={12} />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Brand */}
@@ -559,16 +616,17 @@ export const WishlistItemDetail = ({ item, onClose, onDelete, onUpdate }) => {
           {((item.categories && item.categories.length > 0) || (item.tags && item.tags.length > 0) || (item.colors && item.colors.length > 0)) && (
             <div style={{
               display: 'flex', marginTop: '16px',
-              border: `1px solid ${COLORS.greenLine}`, borderRadius: '10px',
-              overflow: 'hidden', background: COLORS.white,
+              borderRadius: '10px',
+              overflow: 'hidden',
             }}>
               {/* Category column */}
               <div style={{ flex: 1, padding: '10px 8px', borderRight: `1px solid ${COLORS.greenLine}` }}>
                 <div style={{
                   fontFamily: FONTS.sub, fontSize: '9px', textTransform: 'uppercase',
                   letterSpacing: '0.16em', fontWeight: 600, color: COLORS.textMuted, marginBottom: '8px',
+                  textAlign: 'center',
                 }}>Category</div>
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', justifyContent: 'center' }}>
                   {item.categories && item.categories.map((c) => (
                     <span key={c} style={{
                       fontFamily: FONTS.sub, fontSize: '10px', padding: '3px 8px',
@@ -584,8 +642,9 @@ export const WishlistItemDetail = ({ item, onClose, onDelete, onUpdate }) => {
                 <div style={{
                   fontFamily: FONTS.sub, fontSize: '9px', textTransform: 'uppercase',
                   letterSpacing: '0.16em', fontWeight: 600, color: COLORS.textMuted, marginBottom: '8px',
+                  textAlign: 'center',
                 }}>Style</div>
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', justifyContent: 'center' }}>
                   {item.tags && item.tags.map((t) => (
                     <span key={t} style={{
                       fontFamily: FONTS.sub, fontSize: '10px', padding: '3px 8px',
@@ -601,8 +660,9 @@ export const WishlistItemDetail = ({ item, onClose, onDelete, onUpdate }) => {
                 <div style={{
                   fontFamily: FONTS.sub, fontSize: '9px', textTransform: 'uppercase',
                   letterSpacing: '0.16em', fontWeight: 600, color: COLORS.textMuted, marginBottom: '8px',
+                  textAlign: 'center',
                 }}>Color</div>
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', justifyContent: 'center' }}>
                   {item.colors && item.colors.map((c) => (
                     <span key={c} style={{
                       fontFamily: FONTS.sub, fontSize: '10px', padding: '3px 8px',
@@ -636,59 +696,6 @@ export const WishlistItemDetail = ({ item, onClose, onDelete, onUpdate }) => {
               View product
               <ArrowRightIcon size={16} strokeWidth={2} />
             </a>
-          )}
-        </div>
-
-        {/* Bottom actions: trash + edit */}
-        <div style={{ padding: '0 20px 16px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-          {confirming ? (
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={(e) => { e.stopPropagation(); setConfirming(false) }}
-                style={{
-                  padding: '6px 14px', background: 'transparent',
-                  border: `1px solid ${COLORS.greenLine}`, borderRadius: '999px',
-                  fontFamily: FONTS.sub, fontSize: '10px', letterSpacing: '0.1em',
-                  textTransform: 'uppercase', fontWeight: 600,
-                  color: COLORS.green, cursor: 'pointer',
-                }}
-              >Keep</button>
-              <button
-                onClick={(e) => { e.stopPropagation(); onDelete(item.id) }}
-                style={{
-                  padding: '6px 14px', background: COLORS.danger,
-                  border: 'none', borderRadius: '999px',
-                  fontFamily: FONTS.sub, fontSize: '10px', letterSpacing: '0.1em',
-                  textTransform: 'uppercase', fontWeight: 600,
-                  color: COLORS.cream, cursor: 'pointer',
-                }}
-              >Delete</button>
-            </div>
-          ) : (
-            <>
-              <button
-                onClick={(e) => { e.stopPropagation(); setEditing(true) }}
-                style={{
-                  width: '34px', height: '34px', borderRadius: '50%',
-                  background: 'transparent', border: `1px solid ${COLORS.greenLine}`,
-                  color: COLORS.green, display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', cursor: 'pointer',
-                }}
-              >
-                <EditIcon size={14} />
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); setConfirming(true) }}
-                style={{
-                  width: '34px', height: '34px', borderRadius: '50%',
-                  background: 'transparent', border: `1px solid ${COLORS.greenLine}`,
-                  color: COLORS.danger, display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', cursor: 'pointer',
-                }}
-              >
-                <TrashIcon size={14} />
-              </button>
-            </>
           )}
         </div>
       </div>

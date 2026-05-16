@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { CLOSET_KEY, WISHLIST_KEY, INSPO_KEY } from './lib/constants'
 import { loadJson, saveJson } from './lib/storage'
+import { uploadToFirestore, subscribeToAll, uploadAllToFirestore } from './lib/sync'
+import { useAuth, LoginScreen, handleSignOut } from './components/AuthGate'
 import { Header } from './components/Header'
 import { BottomNav } from './components/BottomNav'
 import { FloatingChatButton } from './components/FloatingChatButton'
@@ -15,8 +17,10 @@ import { ClosetPage } from './pages/ClosetPage'
 import { ShoppingPage } from './pages/ShoppingPage'
 import { CalendarPage, StatsPage, ExpertPage, ProfilePage } from './pages/OtherPages'
 import { InspirationPage } from './pages/InspirationPage'
+import { COLORS, FONTS } from './lib/theme'
 
-export default function App() {
+function AppShell() {
+  const user = useAuth()
   const [currentPage, setCurrentPage] = useState('home')
   const [chatOpen, setChatOpen] = useState(false)
   const [chatMounted, setChatMounted] = useState(false)
@@ -28,9 +32,38 @@ export default function App() {
   const [selectedWishlistItem, setSelectedWishlistItem] = useState(null)
   const [inspoItems, setInspoItems] = useState(() => loadJson(INSPO_KEY))
 
-  useEffect(() => { saveJson(CLOSET_KEY, closetItems) }, [closetItems])
-  useEffect(() => { saveJson(WISHLIST_KEY, wishlistItems) }, [wishlistItems])
-  useEffect(() => { saveJson(INSPO_KEY, inspoItems) }, [inspoItems])
+  // Track whether updates come from Firestore (to avoid re-uploading)
+  const fromFirestore = useRef(false)
+
+  // Save to localStorage + Firestore
+  const persist = useCallback((key, items) => {
+    saveJson(key, items)
+    if (!fromFirestore.current && user) {
+      uploadToFirestore(user.uid, key, items)
+    }
+    fromFirestore.current = false
+  }, [user])
+
+  useEffect(() => { persist(CLOSET_KEY, closetItems) }, [closetItems, persist])
+  useEffect(() => { persist(WISHLIST_KEY, wishlistItems) }, [wishlistItems, persist])
+  useEffect(() => { persist(INSPO_KEY, inspoItems) }, [inspoItems, persist])
+
+  // Subscribe to Firestore real-time updates when logged in
+  useEffect(() => {
+    if (!user) return
+    // On first sign-in, push any existing localStorage data up
+    const hasLocal = loadJson(CLOSET_KEY).length > 0 || loadJson(WISHLIST_KEY).length > 0 || loadJson(INSPO_KEY).length > 0
+    if (hasLocal) {
+      uploadAllToFirestore(user.uid)
+    }
+
+    const unsub = subscribeToAll(user.uid, {
+      [CLOSET_KEY]: (items) => { fromFirestore.current = true; setClosetItems(items) },
+      [WISHLIST_KEY]: (items) => { fromFirestore.current = true; setWishlistItems(items) },
+      [INSPO_KEY]: (items) => { fromFirestore.current = true; setInspoItems(items) },
+    })
+    return unsub
+  }, [user])
 
   useEffect(() => {
     if (chatOpen) setChatMounted(true)
@@ -72,6 +105,23 @@ export default function App() {
     setClosetAddOpen(true)
   }
 
+  // Show loading while auth state resolves
+  if (user === undefined) {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', background: COLORS.cream,
+      }}>
+        <div className="garmint-logo" style={{ fontSize: '28px', color: COLORS.green, opacity: 0.5 }}>
+          garmint
+        </div>
+      </div>
+    )
+  }
+
+  // Show login if not authenticated
+  if (!user) return <LoginScreen />
+
   const renderPage = () => {
     switch (currentPage) {
       case 'home':
@@ -112,7 +162,7 @@ export default function App() {
       case 'expert':
         return <ExpertPage />
       case 'profile':
-        return <ProfilePage />
+        return <ProfilePage user={user} onSignOut={handleSignOut} />
       default:
         return <HomePage closetCount={closetItems.length} wishlistCount={wishlistItems.length} onAddPiece={openCloset} />
     }
@@ -139,4 +189,8 @@ export default function App() {
       )}
     </div>
   )
+}
+
+export default function App() {
+  return <AppShell />
 }

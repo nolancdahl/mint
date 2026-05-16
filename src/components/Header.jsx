@@ -4,7 +4,7 @@ import { MintLeavesLogo } from './MintLeavesLogo'
 import { UserIcon } from './Icons'
 
 export const Header = ({ onProfileClick, onLogoClick, profileActive }) => (
-  <header style={{ background: COLORS.green, padding: '12px 18px 14px' }}>
+  <header style={{ background: COLORS.green, padding: '12px 18px 14px', borderRadius: '0 0 14px 14px' }}>
     <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <div onClick={onLogoClick} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', userSelect: 'none' }}>
         <MintLeavesLogo size={30} />

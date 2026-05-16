@@ -203,9 +203,27 @@ const EditableRow = ({ label, value, placeholder }) => (
   </div>
 )
 
-export const ProfilePage = () => (
+export const ProfilePage = ({ user, onSignOut }) => (
   <div>
     <PageTitle title="Profile" subtitle="Your fit + preferences" />
+    {user && (
+      <div className="tile" style={{ padding: '14px 18px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div className="title-bold" style={{ fontSize: '15px', color: COLORS.green }}>{user.displayName || 'User'}</div>
+          <div style={{ fontFamily: FONTS.sub, fontSize: '11px', color: COLORS.textMuted, marginTop: '2px' }}>{user.email}</div>
+        </div>
+        <button
+          onClick={onSignOut}
+          style={{
+            padding: '8px 16px', background: 'transparent', border: `1px solid ${COLORS.greenLine}`,
+            borderRadius: '999px', fontFamily: FONTS.sub, fontSize: '11px', letterSpacing: '0.1em',
+            textTransform: 'uppercase', fontWeight: 600, color: COLORS.textMuted, cursor: 'pointer',
+          }}
+        >
+          Sign out
+        </button>
+      </div>
+    )}
     <SectionTitle>Style preferences</SectionTitle>
     <textarea
       placeholder="Aesthetic direction, brands I love, what I'm trying to avoid, references I keep returning to..."

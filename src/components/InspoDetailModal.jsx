@@ -113,17 +113,20 @@ export const InspoDetailModal = ({ item, onClose, onDelete, onUpdate }) => {
           boxShadow: '0 24px 60px rgba(19, 37, 27, 0.35)',
         }}
       >
-        <img
-          src={item.image}
-          alt=""
-          style={{
-            width: '100%',
-            height: '55vh',
-            objectFit: 'cover',
-            display: 'block',
-            flexShrink: 0,
-          }}
-        />
+        <div style={{
+          width: '100%', flexShrink: 0, background: '#1a2f23',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '12px',
+        }}>
+          <img
+            src={item.image}
+            alt=""
+            style={{
+              maxWidth: '100%', maxHeight: '55vh', objectFit: 'contain',
+              display: 'block', borderRadius: '4px',
+            }}
+          />
+        </div>
 
         <div style={{ overflowY: 'auto', flex: 1 }}>
           <div style={{ padding: '14px 16px' }}>

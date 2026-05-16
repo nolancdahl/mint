@@ -360,7 +360,7 @@ const AddWishlistModal = ({ onClose, onSave }) => {
           padding: '14px 16px', background: COLORS.green, color: COLORS.cream,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0,
         }}>
-          <div className="title-bold" style={{ fontSize: '17px', color: COLORS.cream }}>Add to wishlist</div>
+          <div className="title-bold" style={{ fontSize: '17px', color: COLORS.cream }}>Add to List</div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: COLORS.cream, cursor: 'pointer', padding: '5px' }}>
             <XIcon size={18} />
           </button>
@@ -550,7 +550,7 @@ const AddWishlistModal = ({ onClose, onSave }) => {
             textTransform: 'uppercase', fontWeight: 600, color: COLORS.green, cursor: 'pointer',
           }}>Cancel</button>
           <button onClick={handleSave} disabled={!canSave} style={{
-            flex: 1.4, padding: '11px',
+            flex: 1, padding: '11px',
             background: canSave ? COLORS.green : COLORS.greenLine,
             color: COLORS.cream, border: 'none', borderRadius: '6px',
             fontFamily: FONTS.sub, fontSize: '11.5px', letterSpacing: '0.14em',

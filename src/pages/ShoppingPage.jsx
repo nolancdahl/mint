@@ -5,6 +5,7 @@ import { FieldLabel } from '../components/Primitives'
 import { LinkIcon, PlusIcon, XIcon, ClipboardIcon, ChevronDown, GridIcon } from '../components/Icons'
 import { fileToResizedDataUrl, loadJson, saveJson } from '../lib/storage'
 import { createPortal } from 'react-dom'
+import { CropOverlay } from '../components/CropOverlay'
 
 const TAGS_KEY = 'garmint_wishlist_tags_v1'
 const DEFAULT_TAGS = ['T-Shirts', 'Jeans', 'Chinos', 'Jackets', 'Sweaters', 'Shorts', 'Soccer Shorts', 'Shoes', 'Hats', 'Accessories']
@@ -14,7 +15,7 @@ const loadTags = () => {
   return saved.length > 0 ? saved : DEFAULT_TAGS
 }
 
-const WishlistTile = ({ item, onClick, cols = 3 }) => {
+const WishlistTile = ({ item, onClick, cols = 3, onUpdate }) => {
   // Scale factor: fewer columns = bigger tiles = bigger text
   const s = Math.max(0.6, Math.min(2, 3 / cols))
   const titleSize = 11.5 * s
@@ -24,6 +25,43 @@ const WishlistTile = ({ item, onClick, cols = 3 }) => {
   const padding = `${Math.round(22 * s)}px ${Math.round(10 * s)}px ${Math.round(8 * s)}px`
   const pillPad = `${Math.round(2 * s)}px ${Math.round(7 * s)}px`
   const tagPad = `${Math.round(2 * s)}px ${Math.round(6 * s)}px`
+
+  const overlay = (
+    <div style={{
+      position: 'absolute', left: 0, right: 0, bottom: 0,
+      padding,
+      background: 'linear-gradient(to top, rgba(19,37,27,0.78), transparent)',
+      color: COLORS.cream, zIndex: 1,
+    }}>
+      {item.publisher && (
+        <div style={{ fontFamily: FONTS.sub, fontSize: `${publisherSize}px`, opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 600 }}>
+          {item.publisher}
+        </div>
+      )}
+      <div style={{
+        fontFamily: FONTS.sub, fontSize: `${titleSize}px`, fontWeight: 600, lineHeight: 1.2,
+        overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', marginTop: '2px',
+      }}>
+        {item.title}
+      </div>
+      <div style={{ display: 'flex', gap: `${Math.round(4 * s)}px`, marginTop: `${Math.round(4 * s)}px`, flexWrap: 'wrap' }}>
+        {item.price && (
+          <span style={{
+            fontFamily: FONTS.sub, fontSize: `${priceSize}px`, padding: pillPad,
+            background: 'rgba(46,204,113,0.35)', borderRadius: '999px',
+            fontWeight: 700, letterSpacing: '0.02em',
+          }}>${item.price}</span>
+        )}
+        {item.tags && item.tags.map((t) => (
+          <span key={t} style={{
+            fontFamily: FONTS.sub, fontSize: `${tagSize}px`, padding: tagPad,
+            background: 'rgba(244,238,224,0.25)', borderRadius: '999px',
+            letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600,
+          }}>{t}</span>
+        ))}
+      </div>
+    </div>
+  )
 
   return (
     <div
@@ -35,49 +73,25 @@ const WishlistTile = ({ item, onClick, cols = 3 }) => {
       }}
     >
       {item.image ? (
-        <img src={item.image} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        <CropOverlay
+          src={item.image}
+          cropX={item.cropX}
+          cropY={item.cropY}
+          onSave={(cx, cy) => onUpdate && onUpdate({ ...item, cropX: cx, cropY: cy })}
+        >
+          {overlay}
+        </CropOverlay>
       ) : (
-        <div style={{
-          width: '100%', height: '100%', background: COLORS.creamDeep,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.textFaint,
-        }}>
-          <LinkIcon size={Math.round(28 * s)} strokeWidth={1.2} />
-        </div>
-      )}
-      <div style={{
-        position: 'absolute', left: 0, right: 0, bottom: 0,
-        padding,
-        background: 'linear-gradient(to top, rgba(19,37,27,0.78), transparent)',
-        color: COLORS.cream,
-      }}>
-        {item.publisher && (
-          <div style={{ fontFamily: FONTS.sub, fontSize: `${publisherSize}px`, opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 600 }}>
-            {item.publisher}
+        <>
+          <div style={{
+            width: '100%', height: '100%', background: COLORS.creamDeep,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.textFaint,
+          }}>
+            <LinkIcon size={Math.round(28 * s)} strokeWidth={1.2} />
           </div>
-        )}
-        <div style={{
-          fontFamily: FONTS.sub, fontSize: `${titleSize}px`, fontWeight: 600, lineHeight: 1.2,
-          overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', marginTop: '2px',
-        }}>
-          {item.title}
-        </div>
-        <div style={{ display: 'flex', gap: `${Math.round(4 * s)}px`, marginTop: `${Math.round(4 * s)}px`, flexWrap: 'wrap' }}>
-          {item.price && (
-            <span style={{
-              fontFamily: FONTS.sub, fontSize: `${priceSize}px`, padding: pillPad,
-              background: 'rgba(46,204,113,0.35)', borderRadius: '999px',
-              fontWeight: 700, letterSpacing: '0.02em',
-            }}>${item.price}</span>
-          )}
-          {item.tags && item.tags.map((t) => (
-            <span key={t} style={{
-              fontFamily: FONTS.sub, fontSize: `${tagSize}px`, padding: tagPad,
-              background: 'rgba(244,238,224,0.25)', borderRadius: '999px',
-              letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600,
-            }}>{t}</span>
-          ))}
-        </div>
-      </div>
+          {overlay}
+        </>
+      )}
     </div>
   )
 }
@@ -571,7 +585,7 @@ const GridSizeControl = ({ cols, onChange }) => {
   )
 }
 
-const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder }) => {
+const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder, onUpdate }) => {
   const gridRef = useRef(null)
   const dragState = useRef(null)
   const dragging = useRef(false)
@@ -727,7 +741,7 @@ const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder }) => {
                 WebkitUserSelect: 'none', userSelect: 'none',
               }}
             >
-              <WishlistTile item={item} onClick={() => {}} cols={cols} />
+              <WishlistTile item={item} onClick={() => {}} cols={cols} onUpdate={onUpdate} />
             </div>
           )
         })}
@@ -743,7 +757,7 @@ const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder }) => {
             boxShadow: '0 12px 32px rgba(19, 37, 27, 0.35)',
             transform: 'scale(1.05)', opacity: 0.92,
           }}>
-            <WishlistTile item={items[dragIdx]} onClick={() => {}} cols={cols} />
+            <WishlistTile item={items[dragIdx]} onClick={() => {}} cols={cols} onUpdate={null} />
           </div>
         )
       })()}
@@ -751,7 +765,7 @@ const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder }) => {
   )
 }
 
-export const ShoppingPage = ({ items, pasteOpen, onPasteOpenChange, onSave, onSelectItem, onReorder }) => {
+export const ShoppingPage = ({ items, pasteOpen, onPasteOpenChange, onSave, onSelectItem, onReorder, onUpdate }) => {
   const [catFilter, setCatFilter] = useState([])
   const [tagFilter, setTagFilter] = useState([])
   const [gridCols, setGridCols] = useState(() => {
@@ -831,6 +845,7 @@ export const ShoppingPage = ({ items, pasteOpen, onPasteOpenChange, onSave, onSe
           cols={gridCols}
           onSelect={onSelectItem}
           onReorder={onReorder}
+          onUpdate={onUpdate}
         />
       )}
 

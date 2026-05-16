@@ -232,6 +232,7 @@ function AppShell() {
             onSave={handleSaveWishlist}
             onSelectItem={setSelectedWishlistItem}
             onReorder={(newItems) => setWishlistItems(newItems)}
+            onUpdate={(updated) => setWishlistItems((prev) => prev.map((i) => i.id === updated.id ? updated : i))}
           />
         )
       case 'inspiration':

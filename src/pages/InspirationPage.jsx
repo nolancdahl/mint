@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { COLORS, FONTS } from '../lib/theme'
-import { PlusIcon, ClipboardIcon, XIcon } from '../components/Icons'
+import { PlusIcon, ClipboardIcon, XIcon, EditIcon, CheckIcon } from '../components/Icons'
 import { fileToResizedDataUrl } from '../lib/storage'
 import { uploadImageToStorage } from '../lib/sync'
 import { useAuth } from '../components/AuthGate'
 import { InspoDetailModal } from '../components/InspoDetailModal'
+import { CropOverlay } from '../components/CropOverlay'
 
 const CircleButton = ({ onClick, children, buttonRef }) => (
   <button
@@ -31,7 +32,7 @@ const CircleButton = ({ onClick, children, buttonRef }) => (
   </button>
 )
 
-const DraggableGrid = ({ items, onSelect, onReorder }) => {
+const DraggableGrid = ({ items, onSelect, onReorder, onUpdate }) => {
   const gridRef = useRef(null)
   const dragState = useRef(null)
   const [dragIdx, setDragIdx] = useState(null)
@@ -223,22 +224,24 @@ const DraggableGrid = ({ items, onSelect, onReorder }) => {
                 userSelect: 'none',
               }}
             >
-              <img
+              <CropOverlay
                 src={item.image}
-                alt=""
-                draggable={false}
-                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
-              />
-              {item.analysis && (
-                <div style={{
-                  position: 'absolute',
-                  bottom: '6px', right: '6px',
-                  width: '8px', height: '8px',
-                  borderRadius: '50%',
-                  background: COLORS.green,
-                  border: `1.5px solid ${COLORS.cream}`,
-                }} />
-              )}
+                cropX={item.cropX}
+                cropY={item.cropY}
+                onSave={(cx, cy) => onUpdate({ ...item, cropX: cx, cropY: cy })}
+              >
+                {item.analysis && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '6px', right: '6px',
+                    width: '8px', height: '8px',
+                    borderRadius: '50%',
+                    background: COLORS.green,
+                    border: `1.5px solid ${COLORS.cream}`,
+                    zIndex: 1,
+                  }} />
+                )}
+              </CropOverlay>
             </div>
           )
         })}
@@ -263,7 +266,10 @@ const DraggableGrid = ({ items, onSelect, onReorder }) => {
           <img
             src={items[dragIdx].image}
             alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            style={{
+              width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+              objectPosition: `${items[dragIdx].cropX || 50}% ${items[dragIdx].cropY || 50}%`,
+            }}
           />
         </div>
       )}
@@ -508,7 +514,7 @@ export const InspirationPage = ({ items, onSave, onDelete, onUpdate, onReorder }
       )}
 
       {/* Full-width draggable grid — bleeds into page padding */}
-      <DraggableGrid items={items} onSelect={setSelected} onReorder={onReorder} />
+      <DraggableGrid items={items} onSelect={setSelected} onReorder={onReorder} onUpdate={onUpdate} />
 
       {items.length === 0 && !pasteStatus && !pasteZoneOpen && (
         <div style={{

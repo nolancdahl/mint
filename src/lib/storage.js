@@ -14,6 +14,16 @@ export const saveJson = (key, value) => {
   }
 }
 
+// Convert a data URL to a Blob
+export const dataUrlToBlob = (dataUrl) => {
+  const [header, base64] = dataUrl.split(',')
+  const mime = header.match(/:(.*?);/)[1]
+  const binary = atob(base64)
+  const arr = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i)
+  return new Blob([arr], { type: mime })
+}
+
 // Resize an image file to max-width 800px JPEG data URL
 export const fileToResizedDataUrl = (file, maxWidth = 800, quality = 0.85) => {
   return new Promise((resolve, reject) => {

@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react'
 import { COLORS, FONTS } from '../lib/theme'
 import { PlusIcon, ClipboardIcon, XIcon } from '../components/Icons'
 import { fileToResizedDataUrl } from '../lib/storage'
+import { uploadImageToStorage } from '../lib/sync'
+import { useAuth } from '../components/AuthGate'
 import { InspoDetailModal } from '../components/InspoDetailModal'
 
 const CircleButton = ({ onClick, children, buttonRef }) => (
@@ -30,16 +32,28 @@ const CircleButton = ({ onClick, children, buttonRef }) => (
 )
 
 export const InspirationPage = ({ items, onSave, onDelete, onUpdate }) => {
+  const user = useAuth()
   const fileRef = useRef(null)
   const pasteRef = useRef(null)
   const [selected, setSelected] = useState(null)
   const [pasteStatus, setPasteStatus] = useState(null)
   const [pasteZoneOpen, setPasteZoneOpen] = useState(false)
+  const [uploading, setUploading] = useState(false)
 
   const addImage = async (file) => {
     if (!file.type.startsWith('image/')) return
-    const image = await fileToResizedDataUrl(file, 600, 0.7)
-    onSave({ id: Date.now().toString() + Math.random().toString(36).slice(2), image, addedAt: Date.now(), analysis: null })
+    setUploading(true)
+    try {
+      const dataUrl = await fileToResizedDataUrl(file, 800, 0.85)
+      let image = dataUrl
+      // Upload to Firebase Storage if logged in — stores URL instead of base64
+      if (user) {
+        image = await uploadImageToStorage(user.uid, dataUrl)
+      }
+      onSave({ id: Date.now().toString() + Math.random().toString(36).slice(2), image, addedAt: Date.now(), analysis: null })
+    } finally {
+      setUploading(false)
+    }
   }
 
   const handleFiles = async (files) => {
@@ -220,6 +234,22 @@ export const InspirationPage = ({ items, onSave, onDelete, onUpdate }) => {
           )}
         </div>
       </div>
+
+      {uploading && (
+        <div style={{
+          marginBottom: '12px',
+          padding: '10px 14px',
+          borderRadius: '8px',
+          textAlign: 'center',
+          fontFamily: FONTS.sub,
+          fontSize: '12px',
+          fontWeight: 500,
+          background: 'rgba(31, 61, 46, 0.08)',
+          color: COLORS.textMuted,
+        }}>
+          Uploading...
+        </div>
+      )}
 
       {pasteStatus && (
         <div style={{

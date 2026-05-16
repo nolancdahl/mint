@@ -1,8 +1,9 @@
-import { db } from './firebase'
+import { db, storage } from './firebase'
 import {
   doc, setDoc, onSnapshot, collection, writeBatch,
 } from 'firebase/firestore'
-import { loadJson, saveJson } from './storage'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { loadJson, saveJson, dataUrlToBlob } from './storage'
 import { CLOSET_KEY, WISHLIST_KEY, INSPO_KEY } from './constants'
 
 const COLLECTIONS = {
@@ -61,4 +62,13 @@ export const subscribeToAll = (uid, handlers) => {
     })
   )
   return () => unsubs.forEach((fn) => fn())
+}
+
+// Upload an image (data URL) to Firebase Storage and return the download URL
+export const uploadImageToStorage = async (uid, dataUrl) => {
+  const blob = dataUrlToBlob(dataUrl)
+  const filename = `${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`
+  const storageRef = ref(storage, `users/${uid}/images/${filename}`)
+  await uploadBytes(storageRef, blob, { contentType: 'image/jpeg' })
+  return getDownloadURL(storageRef)
 }

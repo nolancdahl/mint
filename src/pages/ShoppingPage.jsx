@@ -14,61 +14,73 @@ const loadTags = () => {
   return saved.length > 0 ? saved : DEFAULT_TAGS
 }
 
-const WishlistTile = ({ item, onClick }) => (
-  <div
-    onClick={onClick}
-    className="tile"
-    style={{
-      aspectRatio: '3/4', overflow: 'hidden', cursor: 'pointer',
-      padding: 0, display: 'flex', flexDirection: 'column', position: 'relative',
-    }}
-  >
-    {item.image ? (
-      <img src={item.image} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-    ) : (
-      <div style={{
-        width: '100%', height: '100%', background: COLORS.creamDeep,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.textFaint,
-      }}>
-        <LinkIcon size={28} strokeWidth={1.2} />
-      </div>
-    )}
-    <div style={{
-      position: 'absolute', left: 0, right: 0, bottom: 0,
-      padding: '22px 10px 8px',
-      background: 'linear-gradient(to top, rgba(19,37,27,0.78), transparent)',
-      color: COLORS.cream,
-    }}>
-      {item.publisher && (
-        <div style={{ fontFamily: FONTS.sub, fontSize: '9px', opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 600 }}>
-          {item.publisher}
+const WishlistTile = ({ item, onClick, cols = 3 }) => {
+  // Scale factor: fewer columns = bigger tiles = bigger text
+  const s = Math.max(0.6, Math.min(2, 3 / cols))
+  const titleSize = 11.5 * s
+  const publisherSize = 9 * s
+  const priceSize = 9 * s
+  const tagSize = 8 * s
+  const padding = `${Math.round(22 * s)}px ${Math.round(10 * s)}px ${Math.round(8 * s)}px`
+  const pillPad = `${Math.round(2 * s)}px ${Math.round(7 * s)}px`
+  const tagPad = `${Math.round(2 * s)}px ${Math.round(6 * s)}px`
+
+  return (
+    <div
+      onClick={onClick}
+      className="tile"
+      style={{
+        aspectRatio: '3/4', overflow: 'hidden', cursor: 'pointer',
+        padding: 0, display: 'flex', flexDirection: 'column', position: 'relative',
+      }}
+    >
+      {item.image ? (
+        <img src={item.image} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      ) : (
+        <div style={{
+          width: '100%', height: '100%', background: COLORS.creamDeep,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLORS.textFaint,
+        }}>
+          <LinkIcon size={Math.round(28 * s)} strokeWidth={1.2} />
         </div>
       )}
       <div style={{
-        fontFamily: FONTS.sub, fontSize: '11.5px', fontWeight: 600, lineHeight: 1.2,
-        overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', marginTop: '2px',
+        position: 'absolute', left: 0, right: 0, bottom: 0,
+        padding,
+        background: 'linear-gradient(to top, rgba(19,37,27,0.78), transparent)',
+        color: COLORS.cream,
       }}>
-        {item.title}
-      </div>
-      <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
-        {item.price && (
-          <span style={{
-            fontFamily: FONTS.sub, fontSize: '9px', padding: '2px 7px',
-            background: 'rgba(46,204,113,0.35)', borderRadius: '999px',
-            fontWeight: 700, letterSpacing: '0.02em',
-          }}>${item.price}</span>
+        {item.publisher && (
+          <div style={{ fontFamily: FONTS.sub, fontSize: `${publisherSize}px`, opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 600 }}>
+            {item.publisher}
+          </div>
         )}
-        {item.tags && item.tags.map((t) => (
-          <span key={t} style={{
-            fontFamily: FONTS.sub, fontSize: '8px', padding: '2px 6px',
-            background: 'rgba(244,238,224,0.25)', borderRadius: '999px',
-            letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600,
-          }}>{t}</span>
-        ))}
+        <div style={{
+          fontFamily: FONTS.sub, fontSize: `${titleSize}px`, fontWeight: 600, lineHeight: 1.2,
+          overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', marginTop: '2px',
+        }}>
+          {item.title}
+        </div>
+        <div style={{ display: 'flex', gap: `${Math.round(4 * s)}px`, marginTop: `${Math.round(4 * s)}px`, flexWrap: 'wrap' }}>
+          {item.price && (
+            <span style={{
+              fontFamily: FONTS.sub, fontSize: `${priceSize}px`, padding: pillPad,
+              background: 'rgba(46,204,113,0.35)', borderRadius: '999px',
+              fontWeight: 700, letterSpacing: '0.02em',
+            }}>${item.price}</span>
+          )}
+          {item.tags && item.tags.map((t) => (
+            <span key={t} style={{
+              fontFamily: FONTS.sub, fontSize: `${tagSize}px`, padding: tagPad,
+              background: 'rgba(244,238,224,0.25)', borderRadius: '999px',
+              letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600,
+            }}>{t}</span>
+          ))}
+        </div>
       </div>
     </div>
-  </div>
-)
+  )
+}
 
 const CircleButton = ({ onClick, children }) => (
   <button onClick={onClick} style={{
@@ -538,8 +550,8 @@ const GridSizeControl = ({ cols, onChange }) => {
             </div>
             <input
               type="range"
-              min={2}
-              max={7}
+              min={1}
+              max={8}
               value={cols}
               onChange={(e) => onChange(Number(e.target.value))}
               style={{
@@ -550,7 +562,7 @@ const GridSizeControl = ({ cols, onChange }) => {
               display: 'flex', justifyContent: 'space-between',
               fontFamily: FONTS.sub, fontSize: '9px', color: COLORS.textFaint, marginTop: '2px',
             }}>
-              <span>2</span><span>7</span>
+              <span>1</span><span>8</span>
             </div>
           </div>
         </>
@@ -705,7 +717,7 @@ const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder }) => {
                 WebkitUserSelect: 'none', userSelect: 'none',
               }}
             >
-              <WishlistTile item={item} onClick={() => {}} />
+              <WishlistTile item={item} onClick={() => {}} cols={cols} />
             </div>
           )
         })}
@@ -721,7 +733,7 @@ const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder }) => {
             boxShadow: '0 12px 32px rgba(19, 37, 27, 0.35)',
             transform: 'scale(1.05)', opacity: 0.92,
           }}>
-            <WishlistTile item={items[dragIdx]} onClick={() => {}} />
+            <WishlistTile item={items[dragIdx]} onClick={() => {}} cols={cols} />
           </div>
         )
       })()}

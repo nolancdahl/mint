@@ -171,7 +171,7 @@ function AppShell() {
     { id: 'home', label: 'Home', icon: HomeIcon },
     { id: 'closet', label: 'Closet', icon: ShirtIcon },
     { id: 'calendar', label: 'Calendar', icon: CalendarIcon },
-    { id: 'stats', label: 'Stats', icon: BarChartIcon },
+    { id: 'stats', label: 'Insights', icon: BarChartIcon },
     { id: 'shopping', label: 'Shop', icon: ShoppingBagIcon },
     { id: 'inspiration', label: 'Inspo', icon: ImageIcon },
     { id: 'expert', label: 'Expert', icon: SparklesIcon },

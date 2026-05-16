@@ -52,7 +52,7 @@ export const CalendarPage = () => {
 
 export const StatsPage = ({ items, wishlist }) => (
   <div>
-    <PageTitle title="Style Stats" subtitle="Patterns in what you wear" />
+    <PageTitle title="Insights" subtitle="Patterns in what you wear" />
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
       <StatCard label="Total items" value={items.length || '—'} />
       <StatCard label="Wishlist" value={wishlist.length || '—'} />

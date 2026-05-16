@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { createPortal } from 'react-dom'
 import { COLORS, FONTS } from '../lib/theme'
-import { PlusIcon, ClipboardIcon, XIcon, EditIcon, CheckIcon, GridIcon } from '../components/Icons'
+import { PlusIcon, ClipboardIcon, GridIcon } from '../components/Icons'
 import { fileToResizedDataUrl } from '../lib/storage'
 import { uploadImageToStorage } from '../lib/sync'
 import { useAuth } from '../components/AuthGate'
@@ -45,7 +44,7 @@ const GridSizeControl = ({ cols, onChange }) => {
       {open && (
         <>
           <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
-          <div style={{
+          <div className="dropdown-enter" style={{
             position: 'absolute', top: '44px', right: 0, zIndex: 51,
             background: COLORS.cream, borderRadius: '10px',
             border: `1px solid ${COLORS.greenLine}`,
@@ -76,59 +75,62 @@ const GridSizeControl = ({ cols, onChange }) => {
   )
 }
 
-const AddInspoModal = ({ onClose, onUpload, onPasteOpen }) => {
-  return createPortal(
-    <div
-      className="backdrop-enter"
-      onClick={onClose}
-      style={{
-        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        background: 'rgba(19, 37, 27, 0.55)', backdropFilter: 'blur(3px)',
-        zIndex: 9998, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}
-    >
-      <div
-        className="modal-enter"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: 'calc(100% - 32px)', maxWidth: '340px',
-          background: COLORS.cream, borderRadius: '12px',
-          overflow: 'hidden',
-          boxShadow: '0 24px 60px rgba(19, 37, 27, 0.35)',
-        }}
-      >
-        <div style={{
-          padding: '14px 16px', background: COLORS.green, color: COLORS.cream,
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        }}>
-          <div className="title-bold" style={{ fontSize: '17px', color: COLORS.cream }}>Add to Lookbook</div>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: COLORS.cream, cursor: 'pointer', padding: '5px' }}>
-            <XIcon size={18} />
-          </button>
-        </div>
-        <div style={{ padding: '16px', display: 'flex', gap: '8px' }}>
-          <button onClick={() => { onClose(); onUpload() }} style={{
-            flex: 1, padding: '28px 12px', background: COLORS.creamDeep,
-            border: `1px dashed ${COLORS.greenLine}`, borderRadius: '8px',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-            cursor: 'pointer', color: COLORS.textMuted,
-          }}>
-            <PlusIcon size={22} strokeWidth={1.5} />
-            <span style={{ fontFamily: FONTS.sub, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600 }}>Upload</span>
-          </button>
-          <button onClick={() => { onClose(); onPasteOpen() }} style={{
-            flex: 1, padding: '28px 12px', background: COLORS.creamDeep,
-            border: `1px dashed ${COLORS.greenLine}`, borderRadius: '8px',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-            cursor: 'pointer', color: COLORS.textMuted,
-          }}>
-            <ClipboardIcon size={20} strokeWidth={1.5} />
-            <span style={{ fontFamily: FONTS.sub, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600 }}>Paste</span>
-          </button>
-        </div>
+const AddInspoPopover = ({ onClose, onUpload, pasteRef, onPaste }) => {
+  const [pasting, setPasting] = useState(false)
+
+  return (
+    <>
+      <div onClick={(e) => { e.stopPropagation(); onClose() }} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
+      <div className="dropdown-enter" style={{
+        position: 'absolute', top: '44px', right: 0, zIndex: 51,
+        background: COLORS.cream, borderRadius: '10px',
+        border: `1px solid ${COLORS.greenLine}`,
+        boxShadow: '0 8px 24px rgba(19, 37, 27, 0.15)',
+        width: '200px', overflow: 'hidden',
+      }}>
+        {!pasting ? (
+          <div style={{ display: 'flex', gap: '6px', padding: '10px' }}>
+            <button onClick={() => { onClose(); onUpload() }} style={{
+              flex: 1, padding: '16px 8px', background: COLORS.creamDeep,
+              border: `1px dashed ${COLORS.greenLine}`, borderRadius: '8px',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+              cursor: 'pointer', color: COLORS.textMuted,
+            }}>
+              <PlusIcon size={18} strokeWidth={1.5} />
+              <span style={{ fontFamily: FONTS.sub, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>Upload</span>
+            </button>
+            <button onClick={() => {
+              setPasting(true)
+              setTimeout(() => pasteRef.current?.focus(), 100)
+            }} style={{
+              flex: 1, padding: '16px 8px', background: COLORS.creamDeep,
+              border: `1px dashed ${COLORS.greenLine}`, borderRadius: '8px',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+              cursor: 'pointer', color: COLORS.textMuted,
+            }}>
+              <ClipboardIcon size={16} strokeWidth={1.5} />
+              <span style={{ fontFamily: FONTS.sub, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>Paste</span>
+            </button>
+          </div>
+        ) : (
+          <div className="dropdown-enter" style={{ padding: '10px' }}>
+            <div
+              ref={pasteRef}
+              contentEditable
+              onPaste={(e) => { onPaste(e); onClose() }}
+              style={{
+                minHeight: '60px', padding: '12px', background: COLORS.white,
+                border: `1.5px dashed ${COLORS.greenLine}`, borderRadius: '8px',
+                fontFamily: FONTS.sub, fontSize: '11px', color: COLORS.textFaint,
+                outline: 'none', WebkitUserSelect: 'text', userSelect: 'text',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                textAlign: 'center',
+              }}
+            />
+          </div>
+        )}
       </div>
-    </div>,
-    document.body
+    </>
   )
 }
 
@@ -140,13 +142,21 @@ const DraggableGrid = ({ items, cols = 3, onSelect, onReorder, onUpdate }) => {
   const [hoverIdx, setHoverIdx] = useState(null)
   const [dragPos, setDragPos] = useState({ x: 0, y: 0 })
   const longPressTimer = useRef(null)
+  // Refs that always have the latest value (no stale closures)
+  const dragIdxRef = useRef(null)
+  const hoverIdxRef = useRef(null)
+  const itemsRef = useRef(items)
+  itemsRef.current = items
+
+  const setDragIdxBoth = (v) => { dragIdxRef.current = v; setDragIdx(v) }
+  const setHoverIdxBoth = (v) => { hoverIdxRef.current = v; setHoverIdx(v) }
 
   const getCellSize = useCallback(() => {
     if (!gridRef.current) return { w: 0, h: 0, cols, left: 0, top: 0 }
     const rect = gridRef.current.getBoundingClientRect()
     const gap = 2
     const w = (rect.width - gap * (cols - 1)) / cols
-    const h = w // aspect-ratio: 1
+    const h = w
     return { w, h, cols, gap, left: rect.left, top: rect.top }
   }, [cols])
 
@@ -156,8 +166,8 @@ const DraggableGrid = ({ items, cols = 3, onSelect, onReorder, onUpdate }) => {
     const col = Math.floor((clientX - left) / (w + gap))
     const row = Math.floor((clientY - top + scrollTop) / (h + gap))
     const idx = row * c + Math.min(Math.max(col, 0), c - 1)
-    return Math.min(Math.max(idx, 0), items.length - 1)
-  }, [items.length, getCellSize])
+    return Math.min(Math.max(idx, 0), itemsRef.current.length - 1)
+  }, [getCellSize])
 
   const startDrag = useCallback((idx, clientX, clientY) => {
     const { w, h, cols: c, gap, left, top } = getCellSize()
@@ -169,57 +179,67 @@ const DraggableGrid = ({ items, cols = 3, onSelect, onReorder, onUpdate }) => {
     const offsetY = clientY - cellY
     dragState.current = { offsetX, offsetY }
     dragging.current = true
-    setDragIdx(idx)
-    setHoverIdx(idx)
+    longPressTimer.current = null
+    setDragIdxBoth(idx)
+    setHoverIdxBoth(idx)
     setDragPos({ x: clientX - offsetX, y: clientY - offsetY })
   }, [getCellSize])
 
   const moveDrag = useCallback((clientX, clientY) => {
-    if (dragState.current === null || dragIdx === null) return
+    if (dragState.current === null) return
     const { offsetX, offsetY } = dragState.current
     setDragPos({ x: clientX - offsetX, y: clientY - offsetY })
-    setHoverIdx(getIndexFromPos(clientX, clientY))
-  }, [dragIdx, getIndexFromPos])
+    setHoverIdxBoth(getIndexFromPos(clientX, clientY))
+  }, [getIndexFromPos])
 
   const endDrag = useCallback(() => {
     clearTimeout(longPressTimer.current)
-    if (dragIdx !== null && hoverIdx !== null && dragIdx !== hoverIdx) {
-      const newItems = [...items]
-      const [moved] = newItems.splice(dragIdx, 1)
-      newItems.splice(hoverIdx, 0, moved)
+    const di = dragIdxRef.current
+    const hi = hoverIdxRef.current
+    if (di !== null && hi !== null && di !== hi) {
+      const newItems = [...itemsRef.current]
+      const [moved] = newItems.splice(di, 1)
+      newItems.splice(hi, 0, moved)
       onReorder(newItems)
     }
     dragState.current = null
     setTimeout(() => { dragging.current = false }, 50)
-    setDragIdx(null)
-    setHoverIdx(null)
-  }, [dragIdx, hoverIdx, items, onReorder])
+    setDragIdxBoth(null)
+    setHoverIdxBoth(null)
+  }, [onReorder])
 
   // Mouse events
+  const mouseStart = useRef(null)
   const handleMouseDown = useCallback((e, idx) => {
     e.preventDefault()
+    const cx = e.clientX, cy = e.clientY
+    mouseStart.current = { x: cx, y: cy }
     longPressTimer.current = setTimeout(() => {
-      startDrag(idx, e.clientX, e.clientY)
+      startDrag(idx, cx, cy)
     }, 200)
   }, [startDrag])
 
   useEffect(() => {
     const onMove = (e) => {
-      if (dragIdx !== null) {
+      if (dragIdxRef.current !== null) {
         moveDrag(e.clientX, e.clientY)
-      } else if (longPressTimer.current) {
-        clearTimeout(longPressTimer.current)
-        longPressTimer.current = null
+      } else if (longPressTimer.current && mouseStart.current) {
+        const dx = e.clientX - mouseStart.current.x
+        const dy = e.clientY - mouseStart.current.y
+        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+          clearTimeout(longPressTimer.current)
+          longPressTimer.current = null
+        }
       }
     }
-    const onUp = () => { if (dragIdx !== null) endDrag() }
+    const onUp = () => { if (dragIdxRef.current !== null) endDrag() }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
     return () => {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
     }
-  }, [dragIdx, moveDrag, endDrag])
+  }, [moveDrag, endDrag])
 
   // Touch events — need {passive: false} to prevent scrolling
   useEffect(() => {
@@ -233,30 +253,29 @@ const DraggableGrid = ({ items, cols = 3, onSelect, onReorder, onUpdate }) => {
       if (!cell) return
       touchIdx = Number(cell.dataset.idx)
       const touch = e.touches[0]
+      const tx = touch.clientX, ty = touch.clientY
       longPressTimer.current = setTimeout(() => {
-        startDrag(touchIdx, touch.clientX, touch.clientY)
+        startDrag(touchIdx, tx, ty)
       }, 300)
     }
 
     const onTouchMove = (e) => {
-      if (dragIdx !== null || dragState.current) {
+      if (dragIdxRef.current !== null || dragState.current) {
         e.preventDefault()
         const touch = e.touches[0]
         moveDrag(touch.clientX, touch.clientY)
       } else {
-        // User is scrolling, cancel long press
         clearTimeout(longPressTimer.current)
       }
     }
 
     const onTouchEnd = () => {
       clearTimeout(longPressTimer.current)
-      if (dragIdx !== null) {
+      if (dragIdxRef.current !== null) {
         endDrag()
       } else {
-        // It was a tap — open detail
-        if (touchIdx !== null && items[touchIdx]) {
-          onSelect(items[touchIdx])
+        if (touchIdx !== null && itemsRef.current[touchIdx]) {
+          onSelect(itemsRef.current[touchIdx])
         }
       }
       touchIdx = null
@@ -270,7 +289,7 @@ const DraggableGrid = ({ items, cols = 3, onSelect, onReorder, onUpdate }) => {
       grid.removeEventListener('touchmove', onTouchMove)
       grid.removeEventListener('touchend', onTouchEnd)
     }
-  }, [dragIdx, items, startDrag, moveDrag, endDrag, onSelect])
+  }, [startDrag, moveDrag, endDrag, onSelect])
 
   // Compute display order for shifting animation
   const getDisplayIndex = (originalIdx) => {
@@ -335,7 +354,8 @@ const DraggableGrid = ({ items, cols = 3, onSelect, onReorder, onUpdate }) => {
                 src={item.image}
                 cropX={item.cropX}
                 cropY={item.cropY}
-                onSave={(cx, cy) => onUpdate({ ...item, cropX: cx, cropY: cy })}
+                cropZoom={item.cropZoom}
+                onSave={(cx, cy, cz) => onUpdate({ ...item, cropX: cx, cropY: cy, cropZoom: cz })}
               >
                 {item.analysis && (
                   <div style={{
@@ -376,6 +396,7 @@ const DraggableGrid = ({ items, cols = 3, onSelect, onReorder, onUpdate }) => {
             style={{
               width: '100%', height: '100%', objectFit: 'cover', display: 'block',
               objectPosition: `${items[dragIdx].cropX || 50}% ${items[dragIdx].cropY || 50}%`,
+              transform: items[dragIdx].cropZoom && items[dragIdx].cropZoom !== 1 ? `scale(${items[dragIdx].cropZoom})` : undefined,
             }}
           />
         </div>
@@ -390,8 +411,7 @@ export const InspirationPage = ({ items, onSave, onDelete, onUpdate, onReorder }
   const pasteRef = useRef(null)
   const [selected, setSelected] = useState(null)
   const [pasteStatus, setPasteStatus] = useState(null)
-  const [pasteZoneOpen, setPasteZoneOpen] = useState(false)
-  const [addModalOpen, setAddModalOpen] = useState(false)
+  const [addPopoverOpen, setAddPopoverOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [gridCols, setGridCols] = useState(() => {
     const saved = localStorage.getItem(GRID_COLS_KEY)
@@ -430,47 +450,18 @@ export const InspirationPage = ({ items, onSave, onDelete, onUpdate, onReorder }
   const handlePasteEvent = async (e) => {
     const items_list = e.clipboardData?.items
     if (!items_list) return
-    let found = false
     for (const item of items_list) {
       if (item.type.startsWith('image/')) {
         e.preventDefault()
         const file = item.getAsFile()
         if (file) {
           await addImage(file)
-          found = true
+          showStatus('success')
         }
       }
-    }
-    if (found) {
-      setPasteZoneOpen(false)
-      showStatus('success')
     }
     if (pasteRef.current) pasteRef.current.innerHTML = ''
   }
-
-  const openPasteZone = () => {
-    setPasteZoneOpen(true)
-    setTimeout(() => {
-      if (pasteRef.current) pasteRef.current.focus()
-    }, 100)
-  }
-
-  useEffect(() => {
-    const onPaste = async (e) => {
-      if (pasteZoneOpen) return
-      const items_list = e.clipboardData?.items
-      if (!items_list) return
-      for (const item of items_list) {
-        if (item.type.startsWith('image/')) {
-          e.preventDefault()
-          const file = item.getAsFile()
-          if (file) await addImage(file)
-        }
-      }
-    }
-    document.addEventListener('paste', onPaste)
-    return () => document.removeEventListener('paste', onPaste)
-  }, [pasteZoneOpen])
 
   return (
     <div>
@@ -492,74 +483,23 @@ export const InspirationPage = ({ items, onSave, onDelete, onUpdate, onReorder }
             Fits that speak to you
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+        <div style={{ display: 'flex', gap: '8px', marginTop: '4px', position: 'relative' }}>
           <GridSizeControl cols={gridCols} onChange={handleGridColsChange} />
-          <CircleButton onClick={() => setAddModalOpen(true)}>
-            <PlusIcon size={18} strokeWidth={1.8} />
-          </CircleButton>
+          <div style={{ position: 'relative' }}>
+            <CircleButton onClick={() => setAddPopoverOpen(true)}>
+              <PlusIcon size={18} strokeWidth={1.8} />
+            </CircleButton>
+            {addPopoverOpen && (
+              <AddInspoPopover
+                onClose={() => setAddPopoverOpen(false)}
+                onUpload={() => fileRef.current?.click()}
+                pasteRef={pasteRef}
+                onPaste={handlePasteEvent}
+              />
+            )}
+          </div>
         </div>
       </div>
-
-      {/* Paste zone popover */}
-      {pasteZoneOpen && (
-        <>
-          <div
-            className="backdrop-enter"
-            onClick={() => setPasteZoneOpen(false)}
-            style={{
-              position: 'fixed', inset: 0,
-              background: 'rgba(19, 37, 27, 0.4)', zIndex: 100,
-              backdropFilter: 'blur(2px)',
-            }}
-          />
-          <div
-            className="modal-enter"
-            style={{
-              position: 'fixed', top: '50%', left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: '80vw', maxWidth: '320px',
-              background: COLORS.cream, borderRadius: '12px',
-              boxShadow: '0 12px 40px rgba(19, 37, 27, 0.25)',
-              zIndex: 101, overflow: 'hidden',
-            }}
-          >
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '14px 16px 0',
-            }}>
-              <span style={{
-                fontFamily: FONTS.sub, fontSize: '11px', textTransform: 'uppercase',
-                letterSpacing: '0.18em', fontWeight: 600, color: COLORS.textMuted,
-              }}>
-                Paste an image
-              </span>
-              <button
-                onClick={() => setPasteZoneOpen(false)}
-                style={{ background: 'none', border: 'none', color: COLORS.textMuted, cursor: 'pointer', padding: '4px', display: 'flex' }}
-              >
-                <XIcon size={16} />
-              </button>
-            </div>
-            <div style={{ padding: '12px 16px 16px' }}>
-              <div style={{ fontFamily: FONTS.sub, fontSize: '12px', color: COLORS.textFaint, marginBottom: '10px' }}>
-                Long-press the box below, then tap <strong style={{ color: COLORS.textMuted }}>Paste</strong>
-              </div>
-              <div
-                ref={pasteRef}
-                contentEditable
-                onPaste={handlePasteEvent}
-                style={{
-                  minHeight: '80px', padding: '16px', background: COLORS.white,
-                  border: `1.5px dashed ${COLORS.greenLine}`, borderRadius: '8px',
-                  fontFamily: FONTS.sub, fontSize: '13px', color: COLORS.textMuted,
-                  outline: 'none', WebkitUserSelect: 'text', userSelect: 'text',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
-                }}
-              />
-            </div>
-          </div>
-        </>
-      )}
 
       {uploading && (
         <div style={{
@@ -584,7 +524,7 @@ export const InspirationPage = ({ items, onSave, onDelete, onUpdate, onReorder }
       {/* Full-width draggable grid — bleeds into page padding */}
       <DraggableGrid items={items} cols={gridCols} onSelect={setSelected} onReorder={onReorder} onUpdate={onUpdate} />
 
-      {items.length === 0 && !pasteStatus && !pasteZoneOpen && (
+      {items.length === 0 && !pasteStatus && (
         <div style={{
           marginTop: '40px', padding: '14px', textAlign: 'center',
           color: COLORS.textFaint, fontFamily: FONTS.sub, fontSize: '11.5px', fontStyle: 'italic',
@@ -604,14 +544,6 @@ export const InspirationPage = ({ items, onSave, onDelete, onUpdate, onReorder }
           e.target.value = ''
         }}
       />
-
-      {addModalOpen && (
-        <AddInspoModal
-          onClose={() => setAddModalOpen(false)}
-          onUpload={() => fileRef.current?.click()}
-          onPasteOpen={openPasteZone}
-        />
-      )}
 
       {selected && (
         <InspoDetailModal

@@ -36,14 +36,20 @@ export const WishlistItemDetail = ({ item, onClose, onDelete }) => {
       >
         {/* Full image */}
         {item.image ? (
-          <img
-            src={item.image}
-            alt={item.title}
-            style={{
-              width: '100%', maxHeight: '50vh', objectFit: 'contain',
-              display: 'block', flexShrink: 0, background: COLORS.greenDeep,
-            }}
-          />
+          <div style={{
+            width: '100%', flexShrink: 0, background: '#1a2f23',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '12px',
+          }}>
+            <img
+              src={item.image}
+              alt={item.title}
+              style={{
+                maxWidth: '100%', maxHeight: '50vh', objectFit: 'contain',
+                display: 'block', borderRadius: '4px',
+              }}
+            />
+          </div>
         ) : (
           <div style={{
             width: '100%', height: '180px', background: COLORS.creamDeep,

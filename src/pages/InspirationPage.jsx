@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { COLORS, FONTS } from '../lib/theme'
 import { PlusIcon, ClipboardIcon, XIcon } from '../components/Icons'
 import { fileToResizedDataUrl } from '../lib/storage'
@@ -31,7 +31,247 @@ const CircleButton = ({ onClick, children, buttonRef }) => (
   </button>
 )
 
-export const InspirationPage = ({ items, onSave, onDelete, onUpdate }) => {
+const DraggableGrid = ({ items, onSelect, onReorder }) => {
+  const gridRef = useRef(null)
+  const dragState = useRef(null)
+  const [dragIdx, setDragIdx] = useState(null)
+  const [hoverIdx, setHoverIdx] = useState(null)
+  const [dragPos, setDragPos] = useState({ x: 0, y: 0 })
+  const longPressTimer = useRef(null)
+
+  const getCellSize = useCallback(() => {
+    if (!gridRef.current) return { w: 0, h: 0, cols: 3, left: 0, top: 0 }
+    const rect = gridRef.current.getBoundingClientRect()
+    const cols = 3
+    const gap = 2
+    const w = (rect.width - gap * (cols - 1)) / cols
+    const h = w // aspect-ratio: 1
+    return { w, h, cols, gap, left: rect.left, top: rect.top }
+  }, [])
+
+  const getIndexFromPos = useCallback((clientX, clientY) => {
+    const { w, h, cols, gap, left, top } = getCellSize()
+    const col = Math.floor((clientX - left) / (w + gap))
+    const row = Math.floor((clientY - top + gridRef.current.parentElement.scrollTop) / (h + gap))
+    const idx = row * cols + Math.min(Math.max(col, 0), cols - 1)
+    return Math.min(Math.max(idx, 0), items.length - 1)
+  }, [items.length, getCellSize])
+
+  const startDrag = useCallback((idx, clientX, clientY) => {
+    const { w, h, cols, gap, left, top } = getCellSize()
+    const col = idx % cols
+    const row = Math.floor(idx / cols)
+    const cellX = left + col * (w + gap)
+    const cellY = top + row * (h + gap) - (gridRef.current?.parentElement?.scrollTop || 0)
+    const offsetX = clientX - cellX
+    const offsetY = clientY - cellY
+    dragState.current = { offsetX, offsetY }
+    setDragIdx(idx)
+    setHoverIdx(idx)
+    setDragPos({ x: clientX - offsetX, y: clientY - offsetY })
+  }, [getCellSize])
+
+  const moveDrag = useCallback((clientX, clientY) => {
+    if (dragState.current === null || dragIdx === null) return
+    const { offsetX, offsetY } = dragState.current
+    setDragPos({ x: clientX - offsetX, y: clientY - offsetY })
+    setHoverIdx(getIndexFromPos(clientX, clientY))
+  }, [dragIdx, getIndexFromPos])
+
+  const endDrag = useCallback(() => {
+    clearTimeout(longPressTimer.current)
+    if (dragIdx !== null && hoverIdx !== null && dragIdx !== hoverIdx) {
+      const newItems = [...items]
+      const [moved] = newItems.splice(dragIdx, 1)
+      newItems.splice(hoverIdx, 0, moved)
+      onReorder(newItems)
+    }
+    dragState.current = null
+    setDragIdx(null)
+    setHoverIdx(null)
+  }, [dragIdx, hoverIdx, items, onReorder])
+
+  // Mouse events
+  const handleMouseDown = useCallback((e, idx) => {
+    e.preventDefault()
+    longPressTimer.current = setTimeout(() => {
+      startDrag(idx, e.clientX, e.clientY)
+    }, 200)
+  }, [startDrag])
+
+  useEffect(() => {
+    if (dragIdx === null) return
+    const onMove = (e) => moveDrag(e.clientX, e.clientY)
+    const onUp = () => endDrag()
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [dragIdx, moveDrag, endDrag])
+
+  // Touch events — need {passive: false} to prevent scrolling
+  useEffect(() => {
+    const grid = gridRef.current
+    if (!grid) return
+
+    let touchIdx = null
+
+    const onTouchStart = (e) => {
+      const cell = e.target.closest('[data-idx]')
+      if (!cell) return
+      touchIdx = Number(cell.dataset.idx)
+      const touch = e.touches[0]
+      longPressTimer.current = setTimeout(() => {
+        startDrag(touchIdx, touch.clientX, touch.clientY)
+      }, 300)
+    }
+
+    const onTouchMove = (e) => {
+      if (dragIdx !== null || dragState.current) {
+        e.preventDefault()
+        const touch = e.touches[0]
+        moveDrag(touch.clientX, touch.clientY)
+      } else {
+        // User is scrolling, cancel long press
+        clearTimeout(longPressTimer.current)
+      }
+    }
+
+    const onTouchEnd = () => {
+      clearTimeout(longPressTimer.current)
+      if (dragIdx !== null) {
+        endDrag()
+      } else {
+        // It was a tap — open detail
+        if (touchIdx !== null && items[touchIdx]) {
+          onSelect(items[touchIdx])
+        }
+      }
+      touchIdx = null
+    }
+
+    grid.addEventListener('touchstart', onTouchStart, { passive: true })
+    grid.addEventListener('touchmove', onTouchMove, { passive: false })
+    grid.addEventListener('touchend', onTouchEnd, { passive: true })
+    return () => {
+      grid.removeEventListener('touchstart', onTouchStart)
+      grid.removeEventListener('touchmove', onTouchMove)
+      grid.removeEventListener('touchend', onTouchEnd)
+    }
+  }, [dragIdx, items, startDrag, moveDrag, endDrag, onSelect])
+
+  // Compute display order for shifting animation
+  const getDisplayIndex = (originalIdx) => {
+    if (dragIdx === null || hoverIdx === null) return originalIdx
+    if (originalIdx === dragIdx) return hoverIdx
+    if (dragIdx < hoverIdx) {
+      if (originalIdx > dragIdx && originalIdx <= hoverIdx) return originalIdx - 1
+    } else {
+      if (originalIdx >= hoverIdx && originalIdx < dragIdx) return originalIdx + 1
+    }
+    return originalIdx
+  }
+
+  const { w, h, cols, gap } = getCellSize()
+
+  return (
+    <div style={{ margin: '0 -18px', position: 'relative' }}>
+      <div
+        ref={gridRef}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '2px',
+        }}
+      >
+        {items.map((item, idx) => {
+          const isDragging = dragIdx === idx
+          return (
+            <div
+              key={item.id}
+              data-idx={idx}
+              onMouseDown={(e) => handleMouseDown(e, idx)}
+              onMouseUp={() => {
+                clearTimeout(longPressTimer.current)
+                if (dragIdx === null) onSelect(item)
+              }}
+              style={{
+                aspectRatio: '1',
+                cursor: dragIdx !== null ? 'grabbing' : 'pointer',
+                overflow: 'hidden',
+                position: 'relative',
+                opacity: isDragging ? 0.3 : 1,
+                transform: dragIdx !== null && !isDragging
+                  ? (() => {
+                      const displayIdx = getDisplayIndex(idx)
+                      if (displayIdx === idx) return 'none'
+                      const fromCol = idx % 3
+                      const fromRow = Math.floor(idx / 3)
+                      const toCol = displayIdx % 3
+                      const toRow = Math.floor(displayIdx / 3)
+                      const cellW = gridRef.current ? (gridRef.current.offsetWidth - 2 * 2) / 3 + 2 : 0
+                      const dx = (toCol - fromCol) * cellW
+                      const dy = (toRow - fromRow) * cellW
+                      return `translate(${dx}px, ${dy}px)`
+                    })()
+                  : 'none',
+                transition: dragIdx !== null ? 'transform 0.2s ease, opacity 0.15s' : 'none',
+                zIndex: isDragging ? 0 : 1,
+                WebkitUserSelect: 'none',
+                userSelect: 'none',
+              }}
+            >
+              <img
+                src={item.image}
+                alt=""
+                draggable={false}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
+              />
+              {item.analysis && (
+                <div style={{
+                  position: 'absolute',
+                  bottom: '6px', right: '6px',
+                  width: '8px', height: '8px',
+                  borderRadius: '50%',
+                  background: COLORS.green,
+                  border: `1.5px solid ${COLORS.cream}`,
+                }} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Floating drag preview */}
+      {dragIdx !== null && items[dragIdx] && (
+        <div style={{
+          position: 'fixed',
+          left: dragPos.x,
+          top: dragPos.y,
+          width: gridRef.current ? (gridRef.current.offsetWidth - 2 * 2) / 3 : 100,
+          height: gridRef.current ? (gridRef.current.offsetWidth - 2 * 2) / 3 : 100,
+          zIndex: 9999,
+          pointerEvents: 'none',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          boxShadow: '0 12px 32px rgba(19, 37, 27, 0.35)',
+          transform: 'scale(1.08)',
+          opacity: 0.92,
+        }}>
+          <img
+            src={items[dragIdx].image}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+export const InspirationPage = ({ items, onSave, onDelete, onUpdate, onReorder }) => {
   const user = useAuth()
   const fileRef = useRef(null)
   const pasteRef = useRef(null)
@@ -267,44 +507,8 @@ export const InspirationPage = ({ items, onSave, onDelete, onUpdate }) => {
         </div>
       )}
 
-      {/* Full-width grid — bleeds into page padding */}
-      <div style={{
-        margin: '0 -18px',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: '2px',
-      }}>
-        {items.map((item) => (
-          <div
-            key={item.id}
-            onClick={() => setSelected(item)}
-            style={{
-              aspectRatio: '1',
-              cursor: 'pointer',
-              overflow: 'hidden',
-              position: 'relative',
-            }}
-          >
-            <img
-              src={item.image}
-              alt=""
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            />
-            {item.analysis && (
-              <div style={{
-                position: 'absolute',
-                bottom: '6px',
-                right: '6px',
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                background: COLORS.green,
-                border: `1.5px solid ${COLORS.cream}`,
-              }} />
-            )}
-          </div>
-        ))}
-      </div>
+      {/* Full-width draggable grid — bleeds into page padding */}
+      <DraggableGrid items={items} onSelect={setSelected} onReorder={onReorder} />
 
       {items.length === 0 && !pasteStatus && !pasteZoneOpen && (
         <div style={{

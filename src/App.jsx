@@ -178,6 +178,7 @@ function AppShell() {
             onSave={(item) => setInspoItems((prev) => [item, ...prev])}
             onDelete={(id) => setInspoItems((prev) => prev.filter((i) => i.id !== id))}
             onUpdate={(updated) => setInspoItems((prev) => prev.map((i) => i.id === updated.id ? updated : i))}
+            onReorder={(newItems) => setInspoItems(newItems)}
           />
         )
       case 'expert':

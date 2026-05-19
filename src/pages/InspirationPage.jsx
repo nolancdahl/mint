@@ -92,7 +92,7 @@ const AddInspoPopover = ({ onClose, onUpload, pasteRef, onPaste }) => {
           <div style={{ display: 'flex', gap: '6px', padding: '10px' }}>
             <button onClick={() => { onClose(); onUpload() }} style={{
               flex: 1, padding: '16px 8px', background: COLORS.creamDeep,
-              border: `1px dashed ${COLORS.greenLine}`, borderRadius: '8px',
+              border: `1px solid ${COLORS.greenLine}`, borderRadius: '8px',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
               cursor: 'pointer', color: COLORS.textMuted,
             }}>
@@ -104,7 +104,7 @@ const AddInspoPopover = ({ onClose, onUpload, pasteRef, onPaste }) => {
               setTimeout(() => pasteRef.current?.focus(), 100)
             }} style={{
               flex: 1, padding: '16px 8px', background: COLORS.creamDeep,
-              border: `1px dashed ${COLORS.greenLine}`, borderRadius: '8px',
+              border: `1px solid ${COLORS.greenLine}`, borderRadius: '8px',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
               cursor: 'pointer', color: COLORS.textMuted,
             }}>
@@ -120,7 +120,7 @@ const AddInspoPopover = ({ onClose, onUpload, pasteRef, onPaste }) => {
               onPaste={(e) => { onPaste(e); onClose() }}
               style={{
                 minHeight: '60px', padding: '12px', background: COLORS.white,
-                border: `1.5px dashed ${COLORS.greenLine}`, borderRadius: '8px',
+                border: `1.5px solid ${COLORS.greenLine}`, borderRadius: '8px',
                 fontFamily: FONTS.sub, fontSize: '11px', color: COLORS.textFaint,
                 outline: 'none', WebkitUserSelect: 'text', userSelect: 'text',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -208,38 +208,40 @@ const DraggableGrid = ({ items, cols = 3, onSelect, onReorder, onUpdate }) => {
     setHoverIdxBoth(null)
   }, [onReorder])
 
-  // Mouse events
-  const mouseStart = useRef(null)
+  // Mouse events — drag starts immediately when movement exceeds threshold
+  const mouseStart = useRef(null) // { x, y, idx }
   const handleMouseDown = useCallback((e, idx) => {
     e.preventDefault()
-    const cx = e.clientX, cy = e.clientY
-    mouseStart.current = { x: cx, y: cy }
-    longPressTimer.current = setTimeout(() => {
-      startDrag(idx, cx, cy)
-    }, 200)
-  }, [startDrag])
+    mouseStart.current = { x: e.clientX, y: e.clientY, idx }
+  }, [])
 
   useEffect(() => {
     const onMove = (e) => {
       if (dragIdxRef.current !== null) {
+        // Already dragging — update position
         moveDrag(e.clientX, e.clientY)
-      } else if (longPressTimer.current && mouseStart.current) {
+      } else if (mouseStart.current) {
+        // Not yet dragging — check if movement exceeds threshold
         const dx = e.clientX - mouseStart.current.x
         const dy = e.clientY - mouseStart.current.y
-        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
-          clearTimeout(longPressTimer.current)
-          longPressTimer.current = null
+        if (dx * dx + dy * dy > 25) { // 5px radius
+          startDrag(mouseStart.current.idx, mouseStart.current.x, mouseStart.current.y)
+          // Immediately update to current mouse position
+          moveDrag(e.clientX, e.clientY)
         }
       }
     }
-    const onUp = () => { if (dragIdxRef.current !== null) endDrag() }
+    const onUp = () => {
+      if (dragIdxRef.current !== null) endDrag()
+      mouseStart.current = null
+    }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
     return () => {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
     }
-  }, [moveDrag, endDrag])
+  }, [moveDrag, endDrag, startDrag])
 
   // Touch events — need {passive: false} to prevent scrolling
   useEffect(() => {
@@ -321,8 +323,7 @@ const DraggableGrid = ({ items, cols = 3, onSelect, onReorder, onUpdate }) => {
               data-idx={idx}
               onMouseDown={(e) => handleMouseDown(e, idx)}
               onMouseUp={() => {
-                clearTimeout(longPressTimer.current)
-                if (!dragging.current) onSelect(item)
+                if (mouseStart.current && !dragging.current) onSelect(item)
               }}
               style={{
                 aspectRatio: '1',
@@ -480,7 +481,7 @@ export const InspirationPage = ({ items, onSave, onDelete, onUpdate, onReorder }
             letterSpacing: '0.22em',
             fontWeight: 500,
           }}>
-            Fits that speak to you
+            Fits that speak to me
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px', marginTop: '4px', position: 'relative' }}>

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { COLORS, FONTS } from '../lib/theme'
+import { ChevronLeft, ChevronRight } from './Icons'
 
 const weatherCodeMap = (code) => {
   if (code === 0) return { emoji: '☀️', desc: 'Clear and sunny' }
@@ -32,35 +33,101 @@ const dayLabel = (dateStr) => {
 }
 
 const buildRecommendation = (temp, code, rain) => {
-  let opener = ''
-  let outfit = ''
-  let weatherNote = ''
+  let weather = ''
+  let advice = ''
 
   if (temp < 45) {
-    opener = 'Cold one.'
-    outfit = 'Heavy wool sweater, flannel trousers, a topcoat, and a scarf'
+    weather = `Cold today at ${temp}F.`
+    advice = 'Bundle up with heavy layers, a warm outer coat, and something to cover your neck.'
   } else if (temp < 55) {
-    opener = 'Crisp and cool.'
-    outfit = 'A fine-gauge wool crewneck over a button-down with wool flannel trousers'
+    weather = `Crisp and cool at ${temp}F.`
+    advice = 'Think a solid mid-layer, a light jacket, and closed-toe shoes.'
   } else if (temp < 65) {
-    opener = 'Classic mild Seattle.'
-    outfit = "A button-down on its own or a lightweight knit with chinos. Light layer if you'll be out late"
+    weather = `Mild at ${temp}F.`
+    advice = 'A light top layer should do. Maybe carry a jacket if you will be out late.'
   } else if (temp < 72) {
-    opener = 'Edging warm.'
-    outfit = 'Linen-blend button-down or a cotton knit polo with breathable chinos. Skip the layer'
+    weather = `Pleasant at ${temp}F.`
+    advice = 'Breathable fabrics, skip the heavy layers. Comfortable shoes.'
   } else if (temp < 78) {
-    opener = 'Warm.'
-    outfit = 'Reach for your lightest fabrics. Linen shirt or a thin cotton tee with airy trousers. Pick shoes that breathe'
+    weather = `Warm at ${temp}F.`
+    advice = 'Keep it light and airy. Breathable fabrics and shoes that let your feet breathe.'
   } else {
-    opener = 'Hot for Seattle.'
-    outfit = 'Stay light. Linen or thin cotton, loose cut. Hydrate and look for shade'
+    weather = `Hot at ${temp}F.`
+    advice = 'Go as light as you can. Loose cuts, thin fabrics, and stay hydrated.'
   }
 
-  if (rain >= 70) weatherNote = " Heavy rain likely. Don't skip the rain shell."
-  else if (rain >= 40) weatherNote = ` ${rain}% rain chance. A water-resistant layer is worth carrying.`
-  else if (rain >= 20) weatherNote = ` Slim chance of showers (${rain}%).`
+  let rainNote = ''
+  if (rain >= 70) rainNote = ` Heavy rain likely (${rain}%). Bring a rain jacket or an umbrella and wear shoes you don't care about getting wet.`
+  else if (rain >= 40) rainNote = ` Decent rain chance (${rain}%). A water-resistant outer layer is worth carrying.`
+  else if (rain >= 20) rainNote = ` Slim chance of showers (${rain}%). Maybe toss an umbrella in the bag.`
 
-  return `${opener} ${outfit}.${weatherNote}`
+  return `${weather} ${advice}${rainNote}`
+}
+
+// Horizontal scrolling strip with explicit left/right scroll arrows.
+// The arrows fade out at the start/end of the scroll range so they only show when there's somewhere to go.
+const HourlyStrip = ({ children }) => {
+  const scrollRef = useRef(null)
+  const [canLeft, setCanLeft] = useState(false)
+  const [canRight, setCanRight] = useState(true)
+
+  const updateArrows = () => {
+    const el = scrollRef.current
+    if (!el) return
+    setCanLeft(el.scrollLeft > 4)
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4)
+  }
+
+  useEffect(() => {
+    updateArrows()
+    const el = scrollRef.current
+    if (!el) return
+    el.addEventListener('scroll', updateArrows, { passive: true })
+    window.addEventListener('resize', updateArrows)
+    return () => {
+      el.removeEventListener('scroll', updateArrows)
+      window.removeEventListener('resize', updateArrows)
+    }
+  }, [])
+
+  const scrollBy = (delta) => {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollBy({ left: delta, behavior: 'smooth' })
+  }
+
+  const arrowBtn = (side) => ({
+    position: 'absolute', top: '50%', transform: 'translateY(-50%)',
+    [side]: '-2px',
+    width: '26px', height: '26px', borderRadius: '50%',
+    background: COLORS.cream, border: `1px solid ${COLORS.greenLine}`,
+    color: COLORS.green, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer', padding: 0, zIndex: 3,
+    boxShadow: '0 2px 6px rgba(19, 37, 27, 0.18)',
+    opacity: 1, transition: 'opacity 0.2s',
+  })
+
+  return (
+    <div style={{ position: 'relative', margin: '0 -4px' }}>
+      <div ref={scrollRef} className="hide-scrollbar" style={{
+        display: 'flex', gap: '4px', overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch', paddingBottom: '2px',
+        paddingLeft: '28px', paddingRight: '28px',
+      }}>
+        {children}
+      </div>
+      {canLeft && (
+        <button onClick={() => scrollBy(-160)} aria-label="Scroll left" style={arrowBtn('left')}>
+          <ChevronLeft size={14} strokeWidth={2} />
+        </button>
+      )}
+      {canRight && (
+        <button onClick={() => scrollBy(160)} aria-label="Scroll right" style={arrowBtn('right')}>
+          <ChevronRight size={14} strokeWidth={2} />
+        </button>
+      )}
+    </div>
+  )
 }
 
 export const WeatherTile = () => {
@@ -164,7 +231,8 @@ export const WeatherTile = () => {
         Next 24 hours
       </div>
 
-      <div className="hide-scrollbar" style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '2px', margin: '0 -4px' }}>
+      {/* Wrapper holds left/right scroll arrows + a right-edge fade so users can scroll the strip. */}
+      <HourlyStrip>
         {hourly.map((h, i) => (
           <div
             key={i}
@@ -206,7 +274,7 @@ export const WeatherTile = () => {
             </div>
           </div>
         ))}
-      </div>
+      </HourlyStrip>
 
       <div style={{ height: '1px', background: COLORS.greenLineSoft, margin: '14px 0 12px' }} />
 

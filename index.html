@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <title>Garmint</title>
+    <title>mint</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -30,14 +30,28 @@
       #loading {
         position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
         background: #1F3D2E; z-index: 9999;
-        color: #F4EEE0; letter-spacing: 0.05em; font-size: 28px;
-        font-family: 'Manrope', sans-serif; font-weight: 700;
+        color: #F4EEE0; letter-spacing: -0.02em; font-size: 28px;
+        font-family: 'Manrope', sans-serif; font-weight: 700; text-transform: lowercase;
       }
     </style>
   </head>
   <body>
-    <div id="loading">GARMINT</div>
+    <div id="loading">mint</div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+
+    <!-- homebase launcher: top-left button + side panel listing all sibling apps.
+         Source: Home Base App\public\launcher.js -->
+    <script>
+      (function () {
+        var isLocal = /^(localhost|127\.0\.0\.1|192\.|10\.)/.test(location.hostname)
+        var origin = isLocal ? 'http://localhost:5290' : 'https://homebase-nolans-app-369.netlify.app'
+        var s = document.createElement('script')
+        s.src = origin + '/launcher.js'
+        s.defer = true
+        s.dataset.appKey = 'clothes'
+        document.body.appendChild(s)
+      })()
+    </script>
   </body>
 </html>

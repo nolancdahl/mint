@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { auth, googleProvider } from '../lib/firebase'
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import { COLORS, FONTS } from '../lib/theme'
+import { MyntLogo } from './MyntLogo'
 
 export const useAuth = () => {
   const [user, setUser] = useState(undefined) // undefined = loading
@@ -35,10 +36,8 @@ export const LoginScreen = () => {
       alignItems: 'center', justifyContent: 'center', padding: '40px 24px',
       background: COLORS.cream,
     }}>
-      <div className="garmint-logo" style={{
-        fontSize: '32px', color: COLORS.green, marginBottom: '8px',
-      }}>
-        garmint
+      <div style={{ marginBottom: '8px' }}>
+        <MyntLogo color={COLORS.green} height={32} />
       </div>
       <p style={{
         fontFamily: FONTS.sub, fontSize: '13px', color: COLORS.textMuted,

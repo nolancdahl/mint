@@ -23,11 +23,28 @@ export const FloatingChatButton = ({ onClick, active }) => (
         ? '0 10px 28px rgba(31, 61, 46, 0.42)'
         : '0 6px 20px rgba(31, 61, 46, 0.28)',
       zIndex: 102,
-      transition: 'transform 0.18s, box-shadow 0.18s',
+      transition: 'transform 0.22s ease, box-shadow 0.22s ease',
       transform: active ? 'scale(1.05)' : 'scale(1)',
     }}
     aria-label="Ask the stylist"
   >
-    {active ? <XIcon size={20} /> : <SparklesIcon size={22} strokeWidth={1.5} />}
+    <span style={{
+      position: 'absolute',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      transition: 'opacity 0.25s ease, transform 0.25s ease',
+      opacity: active ? 0 : 1,
+      transform: active ? 'rotate(90deg) scale(0.4)' : 'rotate(0) scale(1)',
+    }}>
+      <SparklesIcon size={22} strokeWidth={1.5} />
+    </span>
+    <span style={{
+      position: 'absolute',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      transition: 'opacity 0.25s ease, transform 0.25s ease',
+      opacity: active ? 1 : 0,
+      transform: active ? 'rotate(0) scale(1)' : 'rotate(-90deg) scale(0.4)',
+    }}>
+      <XIcon size={20} />
+    </span>
   </button>
 )

@@ -1,10 +1,18 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { COLORS } from '../lib/theme'
-import { EditIcon, CheckIcon, XIcon } from './Icons'
+import { PenIcon, CheckIcon, XIcon, PlusIcon } from './Icons'
 
-export const CropOverlay = ({ src, cropX = 50, cropY = 50, onSave, children }) => {
+const MinusIcon = ({ size = 20, strokeWidth = 1.5, ...rest }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
+    fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" {...rest}>
+    <path d="M5 12h14" />
+  </svg>
+)
+
+export const CropOverlay = ({ src, cropX = 50, cropY = 50, cropZoom = 1, onSave, children }) => {
   const [editing, setEditing] = useState(false)
   const [pos, setPos] = useState({ x: cropX, y: cropY })
+  const [zoom, setZoom] = useState(cropZoom)
   const [hovered, setHovered] = useState(false)
   const dragRef = useRef(null)
   const containerRef = useRef(null)
@@ -14,12 +22,13 @@ export const CropOverlay = ({ src, cropX = 50, cropY = 50, onSave, children }) =
     e.preventDefault()
     setEditing(true)
     setPos({ x: cropX, y: cropY })
+    setZoom(cropZoom)
   }
 
   const accept = (e) => {
     e.stopPropagation()
     e.preventDefault()
-    onSave(pos.x, pos.y)
+    onSave(pos.x, pos.y, zoom)
     setEditing(false)
   }
 
@@ -27,7 +36,20 @@ export const CropOverlay = ({ src, cropX = 50, cropY = 50, onSave, children }) =
     e.stopPropagation()
     e.preventDefault()
     setPos({ x: cropX, y: cropY })
+    setZoom(cropZoom)
     setEditing(false)
+  }
+
+  const zoomIn = (e) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setZoom((z) => Math.min(3, z + 0.15))
+  }
+
+  const zoomOut = (e) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setZoom((z) => Math.max(1, z - 0.15))
   }
 
   // Mouse drag
@@ -94,7 +116,15 @@ export const CropOverlay = ({ src, cropX = 50, cropY = 50, onSave, children }) =
     }
   }, [editing, pos.x, pos.y])
 
+  const currentZoom = editing ? zoom : cropZoom
   const objPos = `${editing ? pos.x : cropX}% ${editing ? pos.y : cropY}%`
+
+  const btnStyle = {
+    width: '28px', height: '28px', borderRadius: '50%',
+    border: 'none', color: '#fff',
+    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+  }
 
   return (
     <div
@@ -102,6 +132,8 @@ export const CropOverlay = ({ src, cropX = 50, cropY = 50, onSave, children }) =
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onMouseDown={editing ? onMouseDown : undefined}
+      onMouseUp={editing ? (e) => { e.stopPropagation(); dragRef.current = null } : undefined}
+      onClick={editing ? (e) => e.stopPropagation() : undefined}
       style={{
         width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
         cursor: editing ? 'grab' : undefined,
@@ -114,16 +146,19 @@ export const CropOverlay = ({ src, cropX = 50, cropY = 50, onSave, children }) =
         style={{
           width: '100%', height: '100%', objectFit: 'cover', display: 'block',
           objectPosition: objPos,
+          transformOrigin: objPos,
+          transform: currentZoom !== 1 ? `scale(${currentZoom})` : undefined,
           pointerEvents: 'none',
-          transition: editing ? 'none' : 'object-position 0.15s ease',
+          transition: editing ? 'transform 0.15s ease' : 'object-position 0.15s ease, transform-origin 0.15s ease, transform 0.15s ease',
         }}
       />
 
-      {/* Edit icon — subtle, top right */}
-      {!editing && (hovered || false) && (
+      {/* Edit icon — only on hover */}
+      {!editing && hovered && (
         <button
           onClick={startEdit}
           onMouseDown={(e) => e.stopPropagation()}
+          onMouseUp={(e) => e.stopPropagation()}
           style={{
             position: 'absolute', top: '6px', right: '6px',
             width: '24px', height: '24px', borderRadius: '50%',
@@ -134,25 +169,7 @@ export const CropOverlay = ({ src, cropX = 50, cropY = 50, onSave, children }) =
             zIndex: 3,
           }}
         >
-          <EditIcon size={12} strokeWidth={2} />
-        </button>
-      )}
-
-      {/* Always show on mobile via a small tap target */}
-      {!editing && !hovered && (
-        <button
-          onClick={startEdit}
-          onMouseDown={(e) => e.stopPropagation()}
-          style={{
-            position: 'absolute', top: '4px', right: '4px',
-            width: '20px', height: '20px', borderRadius: '50%',
-            background: 'rgba(0,0,0,0.2)', border: 'none',
-            color: 'rgba(255,255,255,0.5)', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 3,
-          }}
-        >
-          <EditIcon size={10} strokeWidth={2} />
+          <PenIcon size={11} strokeWidth={2} />
         </button>
       )}
 
@@ -168,31 +185,23 @@ export const CropOverlay = ({ src, cropX = 50, cropY = 50, onSave, children }) =
           }} />
           <div style={{
             position: 'absolute', top: '6px', right: '6px',
-            display: 'flex', gap: '4px', zIndex: 4,
+            display: 'flex', flexDirection: 'column', gap: '4px', zIndex: 4,
           }}>
-            <button
-              onClick={accept}
-              onMouseDown={(e) => e.stopPropagation()}
-              style={{
-                width: '28px', height: '28px', borderRadius: '50%',
-                background: '#2ecc71', border: 'none', color: '#fff',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-              }}
-            >
+            <button onClick={accept} onMouseDown={(e) => e.stopPropagation()} onMouseUp={(e) => e.stopPropagation()}
+              style={{ ...btnStyle, background: '#2ecc71' }}>
               <CheckIcon size={14} strokeWidth={2.5} />
             </button>
-            <button
-              onClick={discard}
-              onMouseDown={(e) => e.stopPropagation()}
-              style={{
-                width: '28px', height: '28px', borderRadius: '50%',
-                background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-              }}
-            >
+            <button onClick={discard} onMouseDown={(e) => e.stopPropagation()} onMouseUp={(e) => e.stopPropagation()}
+              style={{ ...btnStyle, background: 'rgba(0,0,0,0.5)' }}>
               <XIcon size={14} strokeWidth={2.5} />
+            </button>
+            <button onClick={zoomIn} onMouseDown={(e) => e.stopPropagation()} onMouseUp={(e) => e.stopPropagation()}
+              style={{ ...btnStyle, background: 'rgba(0,0,0,0.5)' }}>
+              <PlusIcon size={14} strokeWidth={2.5} />
+            </button>
+            <button onClick={zoomOut} onMouseDown={(e) => e.stopPropagation()} onMouseUp={(e) => e.stopPropagation()}
+              style={{ ...btnStyle, background: 'rgba(0,0,0,0.5)', opacity: zoom <= 1 ? 0.4 : 1 }}>
+              <MinusIcon size={14} strokeWidth={2.5} />
             </button>
           </div>
         </>

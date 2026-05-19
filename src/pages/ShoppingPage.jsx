@@ -2,16 +2,48 @@ import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react'
 import { COLORS, FONTS } from '../lib/theme'
 import { SHOPPING_CATEGORIES } from '../lib/constants'
 import { FieldLabel } from '../components/Primitives'
-import { LinkIcon, PlusIcon, XIcon, ClipboardIcon, ChevronDown, ChevronLeft, ChevronRight, GridIcon, TagIcon, TypeIcon } from '../components/Icons'
+import { LinkIcon, PlusIcon, XIcon, ClipboardIcon, ChevronDown, ChevronLeft, ChevronRight, GridIcon, TagIcon, TypeIcon, SparklesIcon, PaletteIcon } from '../components/Icons'
 import { fileToResizedDataUrl, loadJson, saveJson } from '../lib/storage'
+import { uploadImageToStorage } from '../lib/sync'
+import { useSyncedJson } from '../lib/useSyncedJson'
+import { useAuth } from '../components/AuthGate'
 import { createPortal } from 'react-dom'
 import { CropOverlay } from '../components/CropOverlay'
+import { STYLE_OPTION_ICONS, CATEGORY_OPTION_ICONS, COLOR_SWATCHES } from './ClosetPage'
+
+// Same visual-per-option logic as Closet's FilterDropdown.
+const optionVisual = (kind, opt) => {
+  if (kind === 'colors') {
+    const swatch = (COLOR_SWATCHES[opt] || opt || '').toString()
+    return (
+      <span style={{
+        display: 'inline-block', width: '14px', height: '14px', borderRadius: '50%',
+        background: swatch, border: `1px solid ${COLORS.greenLine}`, flexShrink: 0,
+      }} />
+    )
+  }
+  const IconComp = (kind === 'styles' ? STYLE_OPTION_ICONS : CATEGORY_OPTION_ICONS)[opt] || (kind === 'styles' ? SparklesIcon : TagIcon)
+  return <IconComp size={14} strokeWidth={1.8} style={{ flexShrink: 0 }} />
+}
+
+// See ClosetPage.uploadImageList for the rationale — keeps the Firestore doc under 1MB.
+const uploadImageList = async (images, user) => {
+  if (!user || !images || images.length === 0) return images
+  return Promise.all(images.map(async (img) => {
+    if (typeof img === 'string' && img.startsWith('data:')) {
+      try { return await uploadImageToStorage(user.uid, img) } catch (e) { console.warn('image upload failed, keeping data URL', e); return img }
+    }
+    return img
+  }))
+}
 
 const TAGS_KEY = 'garmint_wishlist_tags_v1'
 const COLORS_KEY = 'garmint_wishlist_colors_v1'
 const CATEGORIES_KEY = 'garmint_wishlist_cats_v1'
+const SIZES_KEY = 'garmint_sizes_v1'
 const DEFAULT_TAGS = ['Chinos', 'Hats', 'Jackets', 'Jeans', 'Shoes', 'Shorts', 'Soccer Shorts', 'Sweaters', 'T-Shirts']
 const DEFAULT_COLORS = ['Beige', 'Black', 'Blue', 'Brown', 'Burgundy', 'Charcoal', 'Cream', 'Gold', 'Gray', 'Green', 'Ivory', 'Khaki', 'Maroon', 'Navy', 'Olive', 'Orange', 'Pink', 'Purple', 'Red', 'Rust', 'Silver', 'Tan', 'Teal', 'White', 'Yellow']
+const DEFAULT_SIZES = ['XS', 'S', 'M', 'L', 'XL']
 
 const loadTags = () => {
   const saved = loadJson(TAGS_KEY)
@@ -26,6 +58,11 @@ const loadColors = () => {
 const loadCategories = () => {
   const saved = loadJson(CATEGORIES_KEY)
   return saved.length > 0 ? saved : SHOPPING_CATEGORIES
+}
+
+const loadSizes = () => {
+  const saved = loadJson(SIZES_KEY)
+  return saved.length > 0 ? saved : DEFAULT_SIZES
 }
 
 // Get all images for an item (handles both legacy `image` and new `images` array)
@@ -126,15 +163,15 @@ const WishlistTile = ({ item, onClick, cols = 3, onUpdate }) => {
           {/* Multi-image arrows on hover */}
           {hasMultiple && hovered && (
             <>
-              <button onClick={goLeft} style={{ ...arrowBtn, left: '6px' }}>
+              <button onClick={goLeft} onMouseDown={(e) => e.stopPropagation()} onMouseUp={(e) => e.stopPropagation()} style={{ ...arrowBtn, left: '6px' }}>
                 <ChevronLeft size={14} strokeWidth={2.5} />
               </button>
-              <button onClick={goRight} style={{ ...arrowBtn, right: '6px' }}>
+              <button onClick={goRight} onMouseDown={(e) => e.stopPropagation()} onMouseUp={(e) => e.stopPropagation()} style={{ ...arrowBtn, right: '6px' }}>
                 <ChevronRight size={14} strokeWidth={2.5} />
               </button>
               {/* Dot indicators */}
               <div style={{
-                position: 'absolute', top: '6px', left: '50%', transform: 'translateX(-50%)',
+                position: 'absolute', bottom: '6px', left: '50%', transform: 'translateX(-50%)',
                 display: 'flex', gap: '4px', zIndex: 3,
               }}>
                 {images.map((_, i) => (
@@ -175,7 +212,7 @@ const CircleButton = ({ onClick, children }) => (
 )
 
 // Dropdown filter button
-const FilterDropdown = ({ label, options, selected, onChange }) => {
+const FilterDropdown = ({ label, options, selected, onChange, icon: IconComp, optionKind }) => {
   const [open, setOpen] = useState(false)
 
   const displayLabel = selected.length === 0 ? label : selected.join(', ')
@@ -202,16 +239,18 @@ const FilterDropdown = ({ label, options, selected, onChange }) => {
           letterSpacing: '0.08em', textTransform: 'uppercase',
           cursor: 'pointer', display: 'flex', alignItems: 'center',
           justifyContent: 'space-between', gap: '6px',
-          transition: 'all 0.15s',
+          transition: 'background 0.3s ease, color 0.3s ease, border-color 0.3s ease',
+          position: 'relative', zIndex: 3,
         }}
       >
-        <span style={{
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>{displayLabel}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', minWidth: 0 }}>
+          {IconComp && <IconComp size={13} strokeWidth={1.8} style={{ flexShrink: 0 }} />}
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayLabel}</span>
+        </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
           {selected.length > 0 && (
             <span
-              onClick={(e) => { e.stopPropagation(); onChange([]) }}
+              onClick={(e) => { e.stopPropagation(); onChange([]); setOpen(false) }}
               style={{
                 width: '16px', height: '16px', borderRadius: '50%',
                 background: 'rgba(244,238,224,0.3)', display: 'flex',
@@ -224,13 +263,13 @@ const FilterDropdown = ({ label, options, selected, onChange }) => {
       </button>
       {open && (
         <>
-          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 1 }} />
           <div style={{
             position: 'absolute', top: '100%', left: 0, right: 0,
-            marginTop: '4px', background: COLORS.cream, borderRadius: '8px',
+            marginTop: 0, background: COLORS.cream, borderRadius: '0 0 8px 8px',
             border: `1px solid ${COLORS.greenLine}`,
             boxShadow: '0 8px 24px rgba(19, 37, 27, 0.15)',
-            zIndex: 51, maxHeight: '200px', overflowY: 'auto',
+            zIndex: 2, maxHeight: '200px', overflowY: 'auto',
           }}>
             {options.map((opt) => (
               <button
@@ -246,7 +285,10 @@ const FilterDropdown = ({ label, options, selected, onChange }) => {
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}
               >
-                {opt}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
+                  {optionKind && optionVisual(optionKind, opt)}
+                  {opt}
+                </span>
                 {selected.includes(opt) && <span style={{ color: COLORS.green, fontWeight: 700 }}>✓</span>}
               </button>
             ))}
@@ -323,24 +365,31 @@ const AddItemPopup = ({ label, placeholder, onAdd, onClose }) => {
 }
 
 const AddWishlistModal = ({ onClose, onSave }) => {
+  const user = useAuth()
   const fileRef = useRef(null)
   const pasteRef = useRef(null)
+  const [saving, setSaving] = useState(false)
   const [url, setUrl] = useState('')
   const [brand, setBrand] = useState('')
   const [title, setTitle] = useState('')
   const [price, setPrice] = useState('')
+  const [notes, setNotes] = useState('')
   const [images, setImages] = useState([])
   const [previewIdx, setPreviewIdx] = useState(0)
-  const [categories, setCategories] = useState(() => [...loadCategories()].sort((a, b) => a.localeCompare(b)))
+  // Synced across List + Closet (and across devices) via Firestore.
+  const [categories, setCategories] = useSyncedJson(CATEGORIES_KEY, SHOPPING_CATEGORIES)
   const [selectedCategories, setSelectedCategories] = useState([])
-  const [tags, setTags] = useState(() => [...loadTags()].sort((a, b) => a.localeCompare(b)))
+  const [tags, setTags] = useSyncedJson(TAGS_KEY, DEFAULT_TAGS)
   const [selectedTags, setSelectedTags] = useState([])
-  const [colors, setColors] = useState(() => [...loadColors()].sort((a, b) => a.localeCompare(b)))
+  const [colors, setColors] = useSyncedJson(COLORS_KEY, DEFAULT_COLORS)
   const [selectedColors, setSelectedColors] = useState([])
+  const [sizes, setSizes] = useSyncedJson(SIZES_KEY, DEFAULT_SIZES)
+  const [selectedSizes, setSelectedSizes] = useState([])
   const [pasteZoneOpen, setPasteZoneOpen] = useState(false)
   const [addTagOpen, setAddTagOpen] = useState(false)
   const [addColorOpen, setAddColorOpen] = useState(false)
   const [addCatOpen, setAddCatOpen] = useState(false)
+  const [addSizeOpen, setAddSizeOpen] = useState(false)
 
   const toggleCategory = (c) => {
     setSelectedCategories((prev) =>
@@ -360,37 +409,27 @@ const AddWishlistModal = ({ onClose, onSave }) => {
     )
   }
 
+  const toggleSize = (s) => {
+    setSelectedSizes((prev) =>
+      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
+    )
+  }
+
+  const handleAddSize = (name) => {
+    setSizes((prev) => (prev || []).includes(name) ? prev : [...(prev || []), name])
+    if (!selectedSizes.includes(name)) setSelectedSizes((p) => [...p, name])
+  }
   const handleAddTag = (name) => {
-    if (!tags.includes(name)) {
-      const updated = [...tags, name].sort((a, b) => a.localeCompare(b))
-      setTags(updated)
-      saveJson(TAGS_KEY, updated)
-    }
-    if (!selectedTags.includes(name)) {
-      setSelectedTags((prev) => [...prev, name])
-    }
+    setTags((prev) => (prev || []).includes(name) ? prev : [...(prev || []), name].sort((a, b) => a.localeCompare(b)))
+    if (!selectedTags.includes(name)) setSelectedTags((p) => [...p, name])
   }
-
   const handleAddColor = (name) => {
-    if (!colors.includes(name)) {
-      const updated = [...colors, name].sort((a, b) => a.localeCompare(b))
-      setColors(updated)
-      saveJson(COLORS_KEY, updated)
-    }
-    if (!selectedColors.includes(name)) {
-      setSelectedColors((prev) => [...prev, name])
-    }
+    setColors((prev) => (prev || []).includes(name) ? prev : [...(prev || []), name].sort((a, b) => a.localeCompare(b)))
+    if (!selectedColors.includes(name)) setSelectedColors((p) => [...p, name])
   }
-
   const handleAddCategory = (name) => {
-    if (!categories.includes(name)) {
-      const updated = [...categories, name].sort((a, b) => a.localeCompare(b))
-      setCategories(updated)
-      saveJson(CATEGORIES_KEY, updated)
-    }
-    if (!selectedCategories.includes(name)) {
-      setSelectedCategories((prev) => [...prev, name])
-    }
+    setCategories((prev) => (prev || []).includes(name) ? prev : [...(prev || []), name].sort((a, b) => a.localeCompare(b)))
+    if (!selectedCategories.includes(name)) setSelectedCategories((p) => [...p, name])
   }
 
   const handleFile = async (file) => {
@@ -423,25 +462,33 @@ const AddWishlistModal = ({ onClose, onSave }) => {
 
   const canSave = !!(title || url || brand || images.length > 0)
 
-  const handleSave = () => {
-    if (!canSave) return
-    onSave({
-      id: Date.now().toString(),
-      url: url || null,
-      title: title || brand || url || 'Untitled',
-      brand: brand || null,
-      image: images[0] || null,
-      images: images.length > 0 ? images : null,
-      displayImageIndex: 0,
-      price: price || null,
-      publisher: null,
-      description: '',
-      category: selectedCategories[0] || null,
-      categories: selectedCategories,
-      tags: selectedTags,
-      colors: selectedColors,
-      addedAt: new Date().toISOString(),
-    })
+  const handleSave = async () => {
+    if (!canSave || saving) return
+    setSaving(true)
+    try {
+      const finalImages = await uploadImageList(images, user)
+      onSave({
+        id: Date.now().toString(),
+        url: url || null,
+        title: title || brand || url || 'Untitled',
+        brand: brand || null,
+        image: finalImages[0] || null,
+        images: finalImages.length > 0 ? finalImages : null,
+        displayImageIndex: 0,
+        price: price || null,
+        publisher: null,
+        description: '',
+        category: selectedCategories[0] || null,
+        categories: selectedCategories,
+        tags: selectedTags,
+        colors: selectedColors,
+        sizes: selectedSizes,
+        notes: notes || null,
+        addedAt: new Date().toISOString(),
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return createPortal(
@@ -524,7 +571,7 @@ const AddWishlistModal = ({ onClose, onSave }) => {
           <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
             <button onClick={() => fileRef.current?.click()} style={{
               flex: 1, padding: images.length > 0 ? '10px 12px' : '18px 12px', background: COLORS.creamDeep,
-              border: `1px dashed ${COLORS.greenLine}`, borderRadius: '8px',
+              border: `1px solid ${COLORS.greenLine}`, borderRadius: '8px',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
               cursor: 'pointer', color: COLORS.textMuted,
             }}>
@@ -534,7 +581,7 @@ const AddWishlistModal = ({ onClose, onSave }) => {
             {!pasteZoneOpen ? (
               <button onClick={openPasteZone} style={{
                 flex: 1, padding: images.length > 0 ? '10px 12px' : '18px 12px', background: COLORS.creamDeep,
-                border: `1px dashed ${COLORS.greenLine}`, borderRadius: '8px',
+                border: `1px solid ${COLORS.greenLine}`, borderRadius: '8px',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
                 cursor: 'pointer', color: COLORS.textMuted,
               }}>
@@ -546,7 +593,7 @@ const AddWishlistModal = ({ onClose, onSave }) => {
                 ref={pasteRef} contentEditable onPaste={handlePasteEvent}
                 style={{
                   flex: 1, padding: '10px', background: COLORS.white,
-                  border: `1.5px dashed ${COLORS.greenLine}`, borderRadius: '8px',
+                  border: `1.5px solid ${COLORS.greenLine}`, borderRadius: '8px',
                   fontFamily: FONTS.sub, fontSize: '11px', color: COLORS.textFaint,
                   outline: 'none', WebkitUserSelect: 'text', userSelect: 'text',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -621,12 +668,51 @@ const AddWishlistModal = ({ onClose, onSave }) => {
             </div>
           </div>
 
+          <FieldLabel>Sizes</FieldLabel>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
+            <button onClick={() => setAddSizeOpen(true)} style={{
+              width: '28px', height: '28px', borderRadius: '50%', padding: 0,
+              fontSize: '11px', fontWeight: 600,
+              fontFamily: FONTS.sub, border: `1px solid ${COLORS.greenLine}`,
+              background: COLORS.creamDeep, color: COLORS.textMuted,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <PlusIcon size={12} strokeWidth={2} />
+            </button>
+            {sizes.map((s) => (
+              <button key={s} onClick={() => toggleSize(s)} style={{
+                padding: '6px 12px', borderRadius: '999px',
+                fontSize: '11px', fontWeight: 600, letterSpacing: '0.06em',
+                fontFamily: FONTS.sub,
+                border: `1px solid ${selectedSizes.includes(s) ? COLORS.green : COLORS.greenLine}`,
+                background: selectedSizes.includes(s) ? COLORS.green : COLORS.creamDeep,
+                color: selectedSizes.includes(s) ? COLORS.cream : COLORS.textMuted,
+                cursor: 'pointer', transition: 'all 0.15s',
+              }}>{s}</button>
+            ))}
+          </div>
+
+          <FieldLabel>Notes</FieldLabel>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Fit, material, occasion, anything to remember..."
+            rows={3}
+            style={{
+              width: '100%', padding: '12px 14px', borderRadius: '6px',
+              border: `1px solid ${COLORS.greenLine}`, background: COLORS.creamDeep,
+              fontFamily: FONTS.sub, fontSize: '13px', color: COLORS.text, outline: 'none',
+              resize: 'vertical', marginBottom: '14px', boxSizing: 'border-box',
+            }}
+          />
+
           <FieldLabel>Categories</FieldLabel>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
             <button onClick={() => setAddCatOpen(true)} style={{
               width: '28px', height: '28px', borderRadius: '50%', padding: 0,
               fontSize: '11px', fontWeight: 600,
-              fontFamily: FONTS.sub, border: `1px dashed ${COLORS.greenLine}`,
+              fontFamily: FONTS.sub, border: `1px solid ${COLORS.greenLine}`,
               background: COLORS.creamDeep, color: COLORS.textMuted,
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
               flexShrink: 0,
@@ -651,7 +737,7 @@ const AddWishlistModal = ({ onClose, onSave }) => {
             <button onClick={() => setAddTagOpen(true)} style={{
               width: '28px', height: '28px', borderRadius: '50%', padding: 0,
               fontSize: '11px', fontWeight: 600,
-              fontFamily: FONTS.sub, border: `1px dashed ${COLORS.greenLine}`,
+              fontFamily: FONTS.sub, border: `1px solid ${COLORS.greenLine}`,
               background: COLORS.creamDeep, color: COLORS.textMuted,
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
               flexShrink: 0,
@@ -676,7 +762,7 @@ const AddWishlistModal = ({ onClose, onSave }) => {
             <button onClick={() => setAddColorOpen(true)} style={{
               width: '28px', height: '28px', borderRadius: '50%', padding: 0,
               fontSize: '11px', fontWeight: 600,
-              fontFamily: FONTS.sub, border: `1px dashed ${COLORS.greenLine}`,
+              fontFamily: FONTS.sub, border: `1px solid ${COLORS.greenLine}`,
               background: COLORS.creamDeep, color: COLORS.textMuted,
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
               flexShrink: 0,
@@ -701,20 +787,21 @@ const AddWishlistModal = ({ onClose, onSave }) => {
           padding: '12px 16px', borderTop: `1px solid ${COLORS.greenLine}`,
           display: 'flex', gap: '8px', background: COLORS.cream, flexShrink: 0,
         }}>
-          <button onClick={onClose} style={{
+          <button onClick={onClose} disabled={saving} style={{
             flex: 1, padding: '11px', background: 'transparent',
             border: `1px solid ${COLORS.greenLine}`, borderRadius: '6px',
             fontFamily: FONTS.sub, fontSize: '11.5px', letterSpacing: '0.14em',
-            textTransform: 'uppercase', fontWeight: 600, color: COLORS.green, cursor: 'pointer',
+            textTransform: 'uppercase', fontWeight: 600, color: COLORS.green,
+            cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1,
           }}>Cancel</button>
-          <button onClick={handleSave} disabled={!canSave} style={{
+          <button onClick={handleSave} disabled={!canSave || saving} style={{
             flex: 1, padding: '11px',
-            background: canSave ? COLORS.green : COLORS.greenLine,
+            background: (canSave && !saving) ? COLORS.green : COLORS.greenLine,
             color: COLORS.cream, border: 'none', borderRadius: '6px',
             fontFamily: FONTS.sub, fontSize: '11.5px', letterSpacing: '0.14em',
             textTransform: 'uppercase', fontWeight: 600,
-            cursor: canSave ? 'pointer' : 'not-allowed', opacity: canSave ? 1 : 0.6,
-          }}>Save</button>
+            cursor: (canSave && !saving) ? 'pointer' : 'not-allowed', opacity: (canSave && !saving) ? 1 : 0.6,
+          }}>{saving ? 'Saving…' : 'Save'}</button>
         </div>
       </div>
       {addTagOpen && (
@@ -739,6 +826,14 @@ const AddWishlistModal = ({ onClose, onSave }) => {
           placeholder="e.g. Formal, Streetwear..."
           onAdd={handleAddCategory}
           onClose={() => setAddCatOpen(false)}
+        />
+      )}
+      {addSizeOpen && (
+        <AddItemPopup
+          label="New size"
+          placeholder="e.g. 34x30 slim, 10.5..."
+          onAdd={handleAddSize}
+          onClose={() => setAddSizeOpen(false)}
         />
       )}
     </div>,
@@ -802,13 +897,15 @@ const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder, onUpdate }) =
   const [hoverIdx, setHoverIdx] = useState(null)
   const [dragPos, setDragPos] = useState({ x: 0, y: 0 })
   const longPressTimer = useRef(null)
+  const dragIdxRef = useRef(null)
+  const hoverIdxRef = useRef(null)
 
   const getCellSize = useCallback(() => {
     if (!gridRef.current) return { w: 0, h: 0, left: 0, top: 0 }
     const rect = gridRef.current.getBoundingClientRect()
     const gap = 10
     const w = (rect.width - gap * (cols - 1)) / cols
-    const h = w * (4 / 3) // aspect-ratio 3:4
+    const h = w * (4 / 3)
     return { w, h, cols, gap, left: rect.left, top: rect.top }
   }, [cols])
 
@@ -829,31 +926,39 @@ const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder, onUpdate }) =
     const cellY = top + row * (h + gap)
     dragState.current = { offsetX: clientX - cellX, offsetY: clientY - cellY }
     dragging.current = true
+    dragIdxRef.current = idx
+    hoverIdxRef.current = idx
     setDragIdx(idx)
     setHoverIdx(idx)
     setDragPos({ x: cellX, y: cellY })
   }, [cols, getCellSize])
 
   const moveDrag = useCallback((clientX, clientY) => {
-    if (!dragState.current || dragIdx === null) return
+    if (!dragState.current || dragIdxRef.current === null) return
     const { offsetX, offsetY } = dragState.current
     setDragPos({ x: clientX - offsetX, y: clientY - offsetY })
-    setHoverIdx(getIndexFromPos(clientX, clientY))
-  }, [dragIdx, getIndexFromPos])
+    const newHover = getIndexFromPos(clientX, clientY)
+    hoverIdxRef.current = newHover
+    setHoverIdx(newHover)
+  }, [getIndexFromPos])
 
   const endDrag = useCallback(() => {
     clearTimeout(longPressTimer.current)
-    if (dragIdx !== null && hoverIdx !== null && dragIdx !== hoverIdx) {
+    const dIdx = dragIdxRef.current
+    const hIdx = hoverIdxRef.current
+    if (dIdx !== null && hIdx !== null && dIdx !== hIdx) {
       const newItems = [...items]
-      const [moved] = newItems.splice(dragIdx, 1)
-      newItems.splice(hoverIdx, 0, moved)
+      const [moved] = newItems.splice(dIdx, 1)
+      newItems.splice(hIdx, 0, moved)
       onReorder(newItems)
     }
     dragState.current = null
+    dragIdxRef.current = null
+    hoverIdxRef.current = null
     setTimeout(() => { dragging.current = false }, 50)
     setDragIdx(null)
     setHoverIdx(null)
-  }, [dragIdx, hoverIdx, items, onReorder])
+  }, [items, onReorder])
 
   const mouseStart = useRef(null)
   const handleMouseDown = useCallback((e, idx) => {
@@ -865,7 +970,7 @@ const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder, onUpdate }) =
 
   useEffect(() => {
     const onMove = (e) => {
-      if (dragIdx !== null) {
+      if (dragIdxRef.current !== null) {
         moveDrag(e.clientX, e.clientY)
       } else if (longPressTimer.current && mouseStart.current) {
         const dx = e.clientX - mouseStart.current.x
@@ -876,11 +981,11 @@ const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder, onUpdate }) =
         }
       }
     }
-    const onUp = () => { if (dragIdx !== null) endDrag() }
+    const onUp = () => { if (dragIdxRef.current !== null) endDrag() }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-  }, [dragIdx, moveDrag, endDrag])
+  }, [moveDrag, endDrag])
 
   useEffect(() => {
     const grid = gridRef.current
@@ -894,7 +999,7 @@ const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder, onUpdate }) =
       longPressTimer.current = setTimeout(() => startDrag(touchIdx, touch.clientX, touch.clientY), 300)
     }
     const onTouchMove = (e) => {
-      if (dragIdx !== null || dragState.current) {
+      if (dragIdxRef.current !== null || dragState.current) {
         e.preventDefault()
         moveDrag(e.touches[0].clientX, e.touches[0].clientY)
       } else {
@@ -903,7 +1008,7 @@ const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder, onUpdate }) =
     }
     const onTouchEnd = () => {
       clearTimeout(longPressTimer.current)
-      if (dragIdx !== null) { endDrag() }
+      if (dragIdxRef.current !== null) { endDrag() }
       else if (touchIdx !== null && items[touchIdx]) { onSelect(items[touchIdx]) }
       touchIdx = null
     }
@@ -911,7 +1016,7 @@ const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder, onUpdate }) =
     grid.addEventListener('touchmove', onTouchMove, { passive: false })
     grid.addEventListener('touchend', onTouchEnd, { passive: true })
     return () => { grid.removeEventListener('touchstart', onTouchStart); grid.removeEventListener('touchmove', onTouchMove); grid.removeEventListener('touchend', onTouchEnd) }
-  }, [dragIdx, items, startDrag, moveDrag, endDrag, onSelect])
+  }, [items, startDrag, moveDrag, endDrag, onSelect])
 
   const getDisplayIndex = (originalIdx) => {
     if (dragIdx === null || hoverIdx === null) return originalIdx
@@ -953,6 +1058,8 @@ const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder, onUpdate }) =
                     })()
                   : 'none',
                 transition: dragIdx !== null ? 'transform 0.2s ease, opacity 0.15s' : 'none',
+                animation: dragIdx === null ? `tileIn 0.4s cubic-bezier(0.25, 0.1, 0.25, 1) both` : 'none',
+                animationDelay: dragIdx === null ? `${Math.min(idx * 0.04, 0.5)}s` : '0s',
                 WebkitUserSelect: 'none', userSelect: 'none',
               }}
             >
@@ -1026,7 +1133,7 @@ export const ShoppingPage = ({ items, pasteOpen, onPasteOpenChange, onSave, onSe
             margin: '8px 0 0', textTransform: 'uppercase',
             letterSpacing: '0.22em', fontWeight: 500,
           }}>
-            What you're eyeing
+            What I am eyeing
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
@@ -1040,19 +1147,25 @@ export const ShoppingPage = ({ items, pasteOpen, onPasteOpenChange, onSave, onSe
       {/* Two filter dropdowns */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
         <FilterDropdown
-          label="All Categories"
+          label="All Styles"
+          icon={SparklesIcon}
+          optionKind="styles"
           options={allCategories}
           selected={catFilter}
           onChange={setCatFilter}
         />
         <FilterDropdown
-          label="All Styles"
+          label="All Categories"
+          icon={TagIcon}
+          optionKind="categories"
           options={allTags}
           selected={tagFilter}
           onChange={setTagFilter}
         />
         <FilterDropdown
           label="All Colors"
+          icon={PaletteIcon}
+          optionKind="colors"
           options={allColors}
           selected={colorFilter}
           onChange={setColorFilter}
@@ -1068,6 +1181,7 @@ export const ShoppingPage = ({ items, pasteOpen, onPasteOpenChange, onSave, onSe
         </div>
       ) : (
         <DraggableWishlistGrid
+          key={`${catFilter.join(',')}-${tagFilter.join(',')}-${colorFilter.join(',')}`}
           items={filtered}
           cols={gridCols}
           onSelect={onSelectItem}

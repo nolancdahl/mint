@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Garmint',
-        short_name: 'Garmint',
+        name: 'mint',
+        short_name: 'mint',
         description: 'Your wardrobe, considered.',
         theme_color: '#1F3D2E',
         background_color: '#F4EEE0',
@@ -38,6 +38,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -62,7 +65,8 @@ export default defineConfig({
     })
   ],
   server: {
-    port: 5173,
+    port: 5273,
+    strictPort: true,
     host: true
   }
 })

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { CLOSET_KEY, WISHLIST_KEY, INSPO_KEY } from './lib/constants'
 import { loadJson, saveJson } from './lib/storage'
-import { uploadToFirestore, subscribeToAll, uploadAllToFirestore } from './lib/sync'
+import { uploadToFirestore, subscribeToAll, uploadAllToFirestore, setSyncUser, subscribeToProfileKeys, uploadAllProfileToFirestore } from './lib/sync'
+import { useSyncedJson } from './lib/useSyncedJson'
 import { useAuth, LoginScreen, handleSignOut } from './components/AuthGate'
 import { Header } from './components/Header'
 import { BottomNav } from './components/BottomNav'
@@ -10,12 +11,12 @@ import { ChatPopup } from './components/ChatPopup'
 import { ItemDetailModal } from './components/ItemDetailModal'
 import { WishlistItemDetail } from './components/WishlistItemDetail'
 import {
-  HomeIcon, ShirtIcon, CalendarIcon, BarChartIcon, ShoppingBagIcon, ImageIcon, SparklesIcon,
+  HomeIcon, ShirtIcon, BarChartIcon, ShoppingBagIcon, ImageIcon, SparklesIcon, UserIcon,
 } from './components/Icons'
 import { HomePage } from './pages/HomePage'
 import { ClosetPage } from './pages/ClosetPage'
 import { ShoppingPage } from './pages/ShoppingPage'
-import { CalendarPage, StatsPage, ExpertPage, ProfilePage } from './pages/OtherPages'
+import { StatsPage, ExpertPage, ProfilePage, CalendarPage } from './pages/OtherPages'
 import { InspirationPage } from './pages/InspirationPage'
 import { COLORS, FONTS } from './lib/theme'
 
@@ -89,14 +90,20 @@ function AppShell() {
   const [closetItems, setClosetItems] = useState(() => loadJson(CLOSET_KEY))
   const [wishlistItems, setWishlistItems] = useState(() => loadJson(WISHLIST_KEY))
   const [closetAddOpen, setClosetAddOpen] = useState(false)
+  const [closetOutfitOpen, setClosetOutfitOpen] = useState(false)
   const [shopPasteOpen, setShopPasteOpen] = useState(false)
+  const [chatPrefill, setChatPrefill] = useState('')
   const [selectedClosetItem, setSelectedClosetItem] = useState(null)
   const [selectedWishlistItem, setSelectedWishlistItem] = useState(null)
   const [inspoItems, setInspoItems] = useState(() => loadJson(INSPO_KEY))
-  const [profilePhoto, setProfilePhoto] = useState(() => {
-    const p = loadJson('garmint_profile_v1')
-    return (p && typeof p === 'object' && !Array.isArray(p)) ? p.photo || null : null
-  })
+  // Read the profile through useSyncedJson so the header avatar updates when ProfilePage
+  // (or another device) changes the photo. Stored value is the whole profile object;
+  // we only consume the photo here.
+  const [syncedProfile, setSyncedProfile] = useSyncedJson('garmint_profile_v1', null)
+  const profilePhoto = (syncedProfile && typeof syncedProfile === 'object' && !Array.isArray(syncedProfile)) ? (syncedProfile.photo || null) : null
+  const setProfilePhoto = useCallback((photo) => {
+    setSyncedProfile((prev) => ({ ...(prev || {}), photo }))
+  }, [setSyncedProfile])
 
   // Track which keys were just updated from Firestore (per-key, not shared boolean)
   const firestoreKeys = useRef(new Set())
@@ -109,16 +116,23 @@ function AppShell() {
     saveTimer.current = setTimeout(() => setSaveFlash(false), 1500)
   }, [])
 
+  // Read `user` through a ref so `persist`'s identity stays stable across sign-in.
+  // Without this, signing in would change `persist`, re-fire the persist effects with
+  // the still-empty initial state, and overwrite the Firestore doc with [] before the
+  // snapshot listener had a chance to populate state.
+  const userRef = useRef(user)
+  userRef.current = user
+
   // Save to localStorage + Firestore
   const persist = useCallback((key, items) => {
     saveJson(key, items)
     if (firestoreKeys.current.has(key)) {
       firestoreKeys.current.delete(key)
-    } else if (user) {
-      uploadToFirestore(user.uid, key, items)
+    } else if (userRef.current) {
+      uploadToFirestore(userRef.current.uid, key, items)
       showSaveFlash()
     }
-  }, [user, showSaveFlash])
+  }, [showSaveFlash])
 
   // Skip initial mount persist (data already in localStorage)
   const mounted = useRef(false)
@@ -137,19 +151,28 @@ function AppShell() {
 
   // Subscribe to Firestore real-time updates when logged in
   useEffect(() => {
-    if (!user) return
+    if (!user) {
+      setSyncUser(null)
+      return
+    }
+    // Register the user with the profile-sync layer so saveSyncedJson knows where to write.
+    setSyncUser(user)
+
     // On first sign-in, push any existing localStorage data up
     const hasLocal = loadJson(CLOSET_KEY).length > 0 || loadJson(WISHLIST_KEY).length > 0 || loadJson(INSPO_KEY).length > 0
     if (hasLocal) {
       uploadAllToFirestore(user.uid)
     }
+    // Also push profile data (measurements, body photos, brand fits, calendar, etc.)
+    uploadAllProfileToFirestore(user.uid)
 
     const unsub = subscribeToAll(user.uid, {
       [CLOSET_KEY]: (items) => { firestoreKeys.current.add(CLOSET_KEY); setClosetItems(items) },
       [WISHLIST_KEY]: (items) => { firestoreKeys.current.add(WISHLIST_KEY); setWishlistItems(items) },
       [INSPO_KEY]: (items) => { firestoreKeys.current.add(INSPO_KEY); setInspoItems(items) },
     })
-    return unsub
+    const unsubProfile = subscribeToProfileKeys(user.uid)
+    return () => { unsub(); unsubProfile() }
   }, [user])
 
   useEffect(() => {
@@ -174,22 +197,26 @@ function AppShell() {
   const navPages = [
     { id: 'home', label: 'Home', icon: HomeIcon },
     { id: 'closet', label: 'Closet', icon: ShirtIcon },
-    { id: 'calendar', label: 'Calendar', icon: CalendarIcon },
+    { id: 'shopping', label: 'List', icon: ShoppingBagIcon },
+    { id: 'inspiration', label: 'Lookbook', icon: ImageIcon },
     { id: 'stats', label: 'Insights', icon: BarChartIcon },
-    { id: 'shopping', label: 'Shop', icon: ShoppingBagIcon },
-    { id: 'inspiration', label: 'Inspo', icon: ImageIcon },
     { id: 'expert', label: 'Lorenzo', icon: SparklesIcon },
+    { id: 'profile', label: 'Profile', icon: UserIcon },
   ]
 
-  const onProfilePage = currentPage === 'profile'
   const closeAll = () => {
     setChatOpen(false)
     setClosetAddOpen(false)
+    setClosetOutfitOpen(false)
     setShopPasteOpen(false)
   }
   const openCloset = () => {
     setCurrentPage('closet')
     setClosetAddOpen(true)
+  }
+  const openCreateOutfit = () => {
+    setCurrentPage('closet')
+    setClosetOutfitOpen(true)
   }
 
   // Show loading while auth state resolves
@@ -199,8 +226,8 @@ function AppShell() {
         minHeight: '100vh', display: 'flex', alignItems: 'center',
         justifyContent: 'center', background: COLORS.cream,
       }}>
-        <div className="garmint-logo" style={{ fontSize: '28px', color: COLORS.green, opacity: 0.5 }}>
-          garmint
+        <div style={{ fontSize: '28px', color: COLORS.green, opacity: 0.5, fontFamily: "'Manrope', sans-serif", fontWeight: 700, letterSpacing: '-0.02em' }}>
+          mint
         </div>
       </div>
     )
@@ -212,19 +239,21 @@ function AppShell() {
   const renderPage = () => {
     switch (currentPage) {
       case 'home':
-        return <HomePage closetCount={closetItems.length} wishlistCount={wishlistItems.length} onAddPiece={openCloset} />
+        return <HomePage closetCount={closetItems.length} wishlistCount={wishlistItems.length} onCreateOutfit={openCreateOutfit} onNavigate={setCurrentPage} />
       case 'closet':
         return (
           <ClosetPage
             items={closetItems}
             addOpen={closetAddOpen}
             onAddOpenChange={setClosetAddOpen}
+            outfitOpen={closetOutfitOpen}
+            onOutfitOpenChange={setClosetOutfitOpen}
             onSelectItem={setSelectedClosetItem}
             onSaveItem={handleSaveCloset}
+            onUpdate={(updated) => setClosetItems((prev) => prev.map((i) => i.id === updated.id ? updated : i))}
+            onNavigate={setCurrentPage}
           />
         )
-      case 'calendar':
-        return <CalendarPage />
       case 'stats':
         return <StatsPage items={closetItems} wishlist={wishlistItems} />
       case 'shopping':
@@ -249,12 +278,14 @@ function AppShell() {
             onReorder={(newItems) => setInspoItems(newItems)}
           />
         )
+      case 'calendar':
+        return <CalendarPage onPickOutfit={() => openCreateOutfit()} />
       case 'expert':
-        return <ExpertPage />
+        return <ExpertPage prefill={chatPrefill} onPrefillConsumed={() => setChatPrefill('')} />
       case 'profile':
-        return <ProfilePage user={user} onSignOut={handleSignOut} profilePhoto={profilePhoto} onProfilePhotoChange={setProfilePhoto} />
+        return <ProfilePage user={user} onSignOut={handleSignOut} profilePhoto={profilePhoto} onProfilePhotoChange={setProfilePhoto} onNavigate={setCurrentPage} onSetChatPrefill={setChatPrefill} />
       default:
-        return <HomePage closetCount={closetItems.length} wishlistCount={wishlistItems.length} onAddPiece={openCloset} />
+        return <HomePage closetCount={closetItems.length} wishlistCount={wishlistItems.length} onAddPiece={openCloset} onNavigate={setCurrentPage} />
     }
   }
 
@@ -262,10 +293,7 @@ function AppShell() {
     <div style={{ minHeight: '100vh', paddingBottom: '78px' }}>
       <UpdateBanner />
       <Header
-        onProfileClick={() => { setCurrentPage('profile'); closeAll() }}
         onLogoClick={() => { setCurrentPage('home'); closeAll() }}
-        profileActive={onProfilePage}
-        profilePhoto={profilePhoto}
       />
       <main key={currentPage} className="page-enter" style={{ padding: '18px 18px 32px', maxWidth: '1100px', margin: '0 auto' }}>
         {renderPage()}
@@ -296,7 +324,15 @@ function AppShell() {
       <BottomNav pages={navPages} current={currentPage} onChange={(id) => { setCurrentPage(id); closeAll() }} />
       {chatMounted && <ChatPopup isOpen={chatOpen} onClose={() => setChatOpen(false)} />}
       {selectedClosetItem && (
-        <ItemDetailModal item={selectedClosetItem} onClose={() => setSelectedClosetItem(null)} onDelete={handleDeleteCloset} />
+        <ItemDetailModal
+          item={selectedClosetItem}
+          onClose={() => setSelectedClosetItem(null)}
+          onDelete={handleDeleteCloset}
+          onUpdate={(updated) => {
+            setClosetItems((prev) => prev.map((i) => i.id === updated.id ? updated : i))
+            setSelectedClosetItem(updated)
+          }}
+        />
       )}
       {selectedWishlistItem && (
         <WishlistItemDetail

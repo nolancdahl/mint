@@ -35,3 +35,10 @@ yarn-error.log*
 
 # Netlify
 .netlify
+
+# Claude Code local
+.claude/
+
+# Old garmint snapshot (kept locally for reference, not tracked)
+garmintfolddr.zip
+garmintfolddr_extracted/

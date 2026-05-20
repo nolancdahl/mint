@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { CLOSET_KEY, WISHLIST_KEY, INSPO_KEY } from './lib/constants'
 import { loadJson, saveJson } from './lib/storage'
 import { uploadToFirestore, subscribeToAll, uploadAllToFirestore, setSyncUser, subscribeToProfileKeys, uploadAllProfileToFirestore } from './lib/sync'
+import { bridgeSharedProfile } from './lib/sharedProfile'
 import { useSyncedJson } from './lib/useSyncedJson'
 import { useAuth, LoginScreen, handleSignOut } from './components/AuthGate'
 import { Header } from './components/Header'
@@ -172,7 +173,10 @@ function AppShell() {
       [INSPO_KEY]: (items) => { firestoreKeys.current.add(INSPO_KEY); setInspoItems(items) },
     })
     const unsubProfile = subscribeToProfileKeys(user.uid)
-    return () => { unsub(); unsubProfile() }
+    // Bridge to the homebase shared profile doc — keeps Height / Weight / Age / photo in sync
+    // with sibling apps (e.g. gym) that read & write the same identity.
+    const unsubShared = bridgeSharedProfile(user.uid)
+    return () => { unsub(); unsubProfile(); unsubShared() }
   }, [user])
 
   useEffect(() => {

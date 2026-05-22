@@ -1,9 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 32">
-  <rect width="36" height="32" fill="#1F3D2E"/>
-  <g transform="translate(0 2) rotate(-22 11 22)">
-    <path d="M 9 1 L 11 3 L 9 4 L 13 5 L 10 8 L 15 10 L 10 12 L 15 15 L 10 17 L 13 20 L 9 21 L 11 24 L 9 26 L 9 27 L 7 24 L 5 21 L 8 20 L 3 17 L 8 15 L 3 12 L 8 10 L 3 8 L 8 5 L 5 4 L 7 3 Z" fill="#F4EEE0"/>
-  </g>
-  <g transform="translate(13 1) rotate(16 11 22)">
-    <path d="M 9 1 L 11 3 L 9 4 L 13 5 L 10 8 L 15 10 L 10 12 L 15 15 L 10 17 L 13 20 L 9 21 L 11 24 L 9 26 L 9 27 L 7 24 L 5 21 L 8 20 L 3 17 L 8 15 L 3 12 L 8 10 L 3 8 L 8 5 L 5 4 L 7 3 Z" fill="#F4EEE0"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#1F3D2E"/>
+  <text x="18" y="44" font-family="Manrope, sans-serif" font-weight="800" font-size="34" fill="#7db896">m</text>
+  <g transform="translate(40,14) scale(1.1)" stroke="#7db896" stroke-width="2" stroke-linecap="round" fill="none">
+    <path d="M0 18c0 0 1-9 6-14 5 5 6 14 6 14"/>
+    <path d="M6 4c-2 4-2 8-2 14"/>
   </g>
 </svg>

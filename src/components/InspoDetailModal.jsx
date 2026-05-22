@@ -102,6 +102,7 @@ export const InspoDetailModal = ({ item, onClose, onDelete, onUpdate }) => {
         className={closing ? 'modal-exit' : 'modal-enter'}
         onClick={startClose}
         style={{
+          position: 'relative',
           width: 'calc(100% - 40px)',
           maxWidth: '400px',
           maxHeight: '80%',
@@ -129,8 +130,8 @@ export const InspoDetailModal = ({ item, onClose, onDelete, onUpdate }) => {
 
         <div style={{ overflowY: 'auto', flex: 1 }}>
           <div style={{ padding: '14px 16px' }}>
-            {item.analysis ? (
-              <div>
+            {item.analysis && (
+              <div style={{ marginBottom: '14px' }}>
                 <div style={{
                   fontFamily: FONTS.sub,
                   fontSize: '10px',
@@ -152,49 +153,22 @@ export const InspoDetailModal = ({ item, onClose, onDelete, onUpdate }) => {
                   ))}
                 </div>
               </div>
-            ) : (
-              <button
-                onClick={(e) => { e.stopPropagation(); handleAnalyze() }}
-                disabled={analyzing}
-                style={{
-                  width: '100%',
-                  padding: '13px',
-                  background: analyzing ? COLORS.creamDeep : COLORS.green,
-                  color: analyzing ? COLORS.textMuted : COLORS.cream,
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontFamily: FONTS.sub,
-                  fontSize: '12px',
-                  letterSpacing: '0.12em',
-                  textTransform: 'uppercase',
-                  fontWeight: 600,
-                  cursor: analyzing ? 'default' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  transition: 'all 0.15s',
-                }}
-              >
-                <SparklesIcon size={15} />
-                {analyzing ? 'Analyzing outfit...' : 'Analyze outfit'}
-              </button>
             )}
-          </div>
 
-          <div style={{ padding: '0 16px 14px' }}>
             {confirming ? (
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}
+              >
                 <button
                   onClick={(e) => { e.stopPropagation(); setConfirming(false) }}
                   style={{
-                    flex: 1,
-                    padding: '10px',
+                    padding: '13px 20px',
                     background: 'transparent',
                     border: `1px solid ${COLORS.greenLine}`,
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     fontFamily: FONTS.sub,
-                    fontSize: '11px',
+                    fontSize: '12px',
                     letterSpacing: '0.12em',
                     textTransform: 'uppercase',
                     fontWeight: 600,
@@ -207,14 +181,13 @@ export const InspoDetailModal = ({ item, onClose, onDelete, onUpdate }) => {
                 <button
                   onClick={(e) => { e.stopPropagation(); onDelete(item.id) }}
                   style={{
-                    flex: 1,
-                    padding: '10px',
+                    padding: '13px 20px',
                     background: COLORS.danger,
                     color: COLORS.cream,
                     border: 'none',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     fontFamily: FONTS.sub,
-                    fontSize: '11px',
+                    fontSize: '12px',
                     letterSpacing: '0.12em',
                     textTransform: 'uppercase',
                     fontWeight: 600,
@@ -225,30 +198,54 @@ export const InspoDetailModal = ({ item, onClose, onDelete, onUpdate }) => {
                 </button>
               </div>
             ) : (
-              <button
-                onClick={(e) => { e.stopPropagation(); setConfirming(true) }}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  background: 'transparent',
-                  border: `1px solid ${COLORS.greenLine}`,
-                  borderRadius: '6px',
-                  fontFamily: FONTS.sub,
-                  fontSize: '11px',
-                  letterSpacing: '0.12em',
-                  textTransform: 'uppercase',
-                  fontWeight: 600,
-                  color: COLORS.danger,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                }}
-              >
-                <TrashIcon size={13} />
-                Remove
-              </button>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'stretch', justifyContent: 'flex-end' }}>
+                {!item.analysis && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleAnalyze() }}
+                    disabled={analyzing}
+                    style={{
+                      flex: 1,
+                      padding: '13px',
+                      background: analyzing ? COLORS.creamDeep : COLORS.green,
+                      color: analyzing ? COLORS.textMuted : COLORS.cream,
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontFamily: FONTS.sub,
+                      fontSize: '12px',
+                      letterSpacing: '0.12em',
+                      textTransform: 'uppercase',
+                      fontWeight: 600,
+                      cursor: analyzing ? 'default' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <SparklesIcon size={15} />
+                    {analyzing ? 'Analyzing outfit...' : 'Analyze outfit'}
+                  </button>
+                )}
+                <button
+                  onClick={(e) => { e.stopPropagation(); setConfirming(true) }}
+                  aria-label="Remove"
+                  style={{
+                    flexShrink: 0,
+                    width: '52px',
+                    minHeight: '47px',
+                    padding: '13px 0',
+                    background: COLORS.cream,
+                    border: `1px solid ${COLORS.greenLine}`,
+                    borderRadius: '8px',
+                    color: COLORS.danger,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <TrashIcon size={16} />
+                </button>
+              </div>
             )}
           </div>
         </div>

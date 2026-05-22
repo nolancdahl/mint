@@ -6,6 +6,8 @@ import { PlusIcon, SendIcon, XIcon, CameraIcon, PenIcon, CheckIcon, MessageIcon,
 import { loadJson, saveJson, fileToResizedDataUrl } from '../lib/storage'
 import { useSyncedJson } from '../lib/useSyncedJson'
 import { SHOPPING_CATEGORIES, CLOSET_KEY, WISHLIST_KEY } from '../lib/constants'
+import { db, auth } from '../lib/firebase'
+import { buildCrossAppBlock } from '../lib/crossAppContext'
 
 // Snapshot of the user's saved profile data to send with each Lorenzo chat request.
 // The Netlify function embeds this in the system prompt so Claude can ground answers in
@@ -422,6 +424,7 @@ export const ExpertPage = ({ prefill, onPrefillConsumed }) => {
   const [activePanel, setActivePanel] = useState(null) // 'ask' | 'photo' | 'history' | null
   const [photoImages, setPhotoImages] = useState([])
   const [sending, setSending] = useState(false)
+  const [crossApp, setCrossApp] = useState('')
   // Synced across devices via Firestore — chat history appears on phone after a desktop session.
   const [history, setHistory] = useSyncedJson(LORENZO_HISTORY_KEY, [])
   const [historyQuery, setHistoryQuery] = useState('')
@@ -446,6 +449,19 @@ export const ExpertPage = ({ prefill, onPrefillConsumed }) => {
     if (!q) return history
     return history.filter((h) => h.messages.some((m) => m.text && m.text.toLowerCase().includes(q)))
   }, [history, historyQuery])
+
+  // Fetch the user's other-app data once when the Ask panel opens (not per message) —
+  // slow-changing data, so one read per session keeps Firestore reads and latency down.
+  useEffect(() => {
+    if (activePanel !== 'ask') return
+    const uid = auth?.currentUser?.uid
+    if (!db || !uid) return
+    let cancelled = false
+    buildCrossAppBlock(db, uid, { excludeApp: 'clothes' }).then((block) => {
+      if (!cancelled) setCrossApp(block)
+    })
+    return () => { cancelled = true }
+  }, [activePanel])
 
   // Honor an inbound prefill (e.g., from Profile → "Chat with Lorenzo"): pop open the Ask panel
   // and seed the input. User still presses Send to submit it.
@@ -480,7 +496,7 @@ export const ExpertPage = ({ prefill, onPrefillConsumed }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: nextHistory.map((m) => ({ role: m.role, text: m.text })),
-          userContext: gatherUserContext(),
+          userContext: { ...gatherUserContext(), crossApp },
         }),
       })
       let data = {}

@@ -690,6 +690,7 @@ export const ItemDetailModal = ({ item, onClose, onDelete, onUpdate }) => {
               background: COLORS.white, color: COLORS.textMuted,
               border: `1px solid ${COLORS.creamDeep}`, borderRadius: '999px',
               letterSpacing: '0.06em', fontWeight: 500,
+              textAlign: 'center',
             }
             const header = {
               fontFamily: FONTS.sub, fontSize: '9px', textTransform: 'uppercase',

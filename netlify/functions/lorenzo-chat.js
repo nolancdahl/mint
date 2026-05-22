@@ -92,6 +92,7 @@ const buildSystemPrompt = (userContext = {}) => [
   'USER PROFILE',
   '',
   formatUserContext(userContext),
+  ...(userContext.crossApp ? ['', '--------', '', userContext.crossApp] : []),
   '',
   'Address the user directly. Use their measurements, brand fits, and color palette to ground advice when relevant. If they have not filled something in, do not invent values — work with what is there.',
 ].join('\n')

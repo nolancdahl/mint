@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { COLORS, FONTS } from '../lib/theme'
 import { SHOPPING_CATEGORIES } from '../lib/constants'
-import { TrashIcon, ArrowRightIcon, PenIcon, XIcon, PlusIcon, ClipboardIcon, LinkIcon, TagIcon, TypeIcon, ChevronLeft, ChevronRight } from './Icons'
+import { TrashIcon, ArrowRightIcon, PenIcon, XIcon, PlusIcon, ClipboardIcon, LinkIcon, TagIcon, TypeIcon, ChevronLeft, ChevronRight, ChevronDown } from './Icons'
 import { FieldLabel } from './Primitives'
 import { fileToResizedDataUrl, loadJson, saveJson } from '../lib/storage'
 import { uploadImageToStorage } from '../lib/sync'
@@ -564,12 +564,12 @@ export const WishlistItemDetail = ({ item, onClose, onDelete, onUpdate }) => {
       >
         {/* Full image — no border/padding */}
         {detailImages.length > 0 ? (
-          <div style={{ width: '100%', flexShrink: 0, position: 'relative', background: COLORS.creamDeep }}>
+          <div style={{ width: '100%', flexShrink: 0, position: 'relative', background: COLORS.creamDeep, aspectRatio: '4/5' }}>
             <img
               src={detailImages[detailImgIdx] || detailImages[0]}
               alt={item.title}
               style={{
-                width: '100%', maxHeight: '50vh', objectFit: 'contain',
+                width: '100%', height: '100%', objectFit: 'cover',
                 display: 'block',
               }}
             />
@@ -700,6 +700,7 @@ export const WishlistItemDetail = ({ item, onClose, onDelete, onUpdate }) => {
               background: COLORS.white, color: COLORS.textMuted,
               border: `1px solid ${COLORS.creamDeep}`, borderRadius: '999px',
               letterSpacing: '0.06em', fontWeight: 500,
+              textAlign: 'center',
             }
             const header = {
               fontFamily: FONTS.sub, fontSize: '9px', textTransform: 'uppercase',

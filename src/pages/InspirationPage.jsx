@@ -249,6 +249,8 @@ const DraggableGrid = ({ items, cols = 3, onSelect, onReorder, onUpdate }) => {
     if (!grid) return
 
     let touchIdx = null
+    let touchStart = null // { x, y } — to tell a tap from a scroll/drag
+    const TAP_SLOP = 10 // px — finger may wander this much and still count as a tap
 
     const onTouchStart = (e) => {
       const cell = e.target.closest('[data-idx]')
@@ -256,6 +258,7 @@ const DraggableGrid = ({ items, cols = 3, onSelect, onReorder, onUpdate }) => {
       touchIdx = Number(cell.dataset.idx)
       const touch = e.touches[0]
       const tx = touch.clientX, ty = touch.clientY
+      touchStart = { x: tx, y: ty }
       longPressTimer.current = setTimeout(() => {
         startDrag(touchIdx, tx, ty)
       }, 300)
@@ -267,25 +270,39 @@ const DraggableGrid = ({ items, cols = 3, onSelect, onReorder, onUpdate }) => {
         const touch = e.touches[0]
         moveDrag(touch.clientX, touch.clientY)
       } else {
+        // Moved before the long-press fired → this is a scroll, not a tap.
+        // Cancel the pending drag AND mark the gesture so touchend won't open the item.
+        if (touchStart) {
+          const touch = e.touches[0]
+          if (Math.abs(touch.clientX - touchStart.x) > TAP_SLOP || Math.abs(touch.clientY - touchStart.y) > TAP_SLOP) {
+            touchStart = null
+          }
+        }
         clearTimeout(longPressTimer.current)
       }
     }
 
-    const onTouchEnd = () => {
+    const onTouchEnd = (e) => {
       clearTimeout(longPressTimer.current)
       if (dragIdxRef.current !== null) {
         endDrag()
       } else {
-        if (touchIdx !== null && itemsRef.current[touchIdx]) {
+        // Only a genuine tap (pressed + released in roughly the same spot) opens the item.
+        // touchStart is nulled out above once the finger scrolls past the slop threshold.
+        if (touchStart && touchIdx !== null && itemsRef.current[touchIdx]) {
+          // Suppress the synthesized "ghost click" that would otherwise fire ~300ms
+          // later and land on the just-opened detail modal's backdrop, closing it.
+          e.preventDefault()
           onSelect(itemsRef.current[touchIdx])
         }
       }
       touchIdx = null
+      touchStart = null
     }
 
     grid.addEventListener('touchstart', onTouchStart, { passive: true })
     grid.addEventListener('touchmove', onTouchMove, { passive: false })
-    grid.addEventListener('touchend', onTouchEnd, { passive: true })
+    grid.addEventListener('touchend', onTouchEnd, { passive: false })
     return () => {
       grid.removeEventListener('touchstart', onTouchStart)
       grid.removeEventListener('touchmove', onTouchMove)

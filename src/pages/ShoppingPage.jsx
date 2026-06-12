@@ -246,9 +246,9 @@ const FilterDropdown = ({ label, options, selected, onChange, icon: IconComp, op
           position: 'relative', zIndex: 3,
         }}
       >
-        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', minWidth: 0 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', minWidth: 0, justifyContent: 'center' }}>
           {IconComp && <IconComp size={13} strokeWidth={1.8} style={{ flexShrink: 0 }} />}
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayLabel}</span>
+          <span className="mint-filter-label" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayLabel}</span>
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
           {selected.length > 0 && (
@@ -994,11 +994,14 @@ const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder, onUpdate }) =
     const grid = gridRef.current
     if (!grid) return
     let touchIdx = null
+    let touchStart = null // { x, y } — to tell a tap from a scroll/drag
+    const TAP_SLOP = 10 // px — finger may wander this much and still count as a tap
     const onTouchStart = (e) => {
       const cell = e.target.closest('[data-idx]')
       if (!cell) return
       touchIdx = Number(cell.dataset.idx)
       const touch = e.touches[0]
+      touchStart = { x: touch.clientX, y: touch.clientY }
       longPressTimer.current = setTimeout(() => startDrag(touchIdx, touch.clientX, touch.clientY), 300)
     }
     const onTouchMove = (e) => {
@@ -1006,18 +1009,29 @@ const DraggableWishlistGrid = ({ items, cols, onSelect, onReorder, onUpdate }) =
         e.preventDefault()
         moveDrag(e.touches[0].clientX, e.touches[0].clientY)
       } else {
+        // Moved before the long-press fired → scroll, not a tap. Cancel the pending drag
+        // and mark the gesture so touchend won't open the item.
+        if (touchStart) {
+          const touch = e.touches[0]
+          if (Math.abs(touch.clientX - touchStart.x) > TAP_SLOP || Math.abs(touch.clientY - touchStart.y) > TAP_SLOP) {
+            touchStart = null
+          }
+        }
         clearTimeout(longPressTimer.current)
       }
     }
-    const onTouchEnd = () => {
+    const onTouchEnd = (e) => {
       clearTimeout(longPressTimer.current)
       if (dragIdxRef.current !== null) { endDrag() }
-      else if (touchIdx !== null && items[touchIdx]) { onSelect(items[touchIdx]) }
+      // Only a genuine tap opens the item; touchStart is nulled once the finger scrolls.
+      // preventDefault suppresses the synthesized ghost click that would close the modal.
+      else if (touchStart && touchIdx !== null && items[touchIdx]) { e.preventDefault(); onSelect(items[touchIdx]) }
       touchIdx = null
+      touchStart = null
     }
     grid.addEventListener('touchstart', onTouchStart, { passive: true })
     grid.addEventListener('touchmove', onTouchMove, { passive: false })
-    grid.addEventListener('touchend', onTouchEnd, { passive: true })
+    grid.addEventListener('touchend', onTouchEnd, { passive: false })
     return () => { grid.removeEventListener('touchstart', onTouchStart); grid.removeEventListener('touchmove', onTouchMove); grid.removeEventListener('touchend', onTouchEnd) }
   }, [items, startDrag, moveDrag, endDrag, onSelect])
 

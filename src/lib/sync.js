@@ -146,17 +146,26 @@ export const syncProfileKey = async (uid, key, value) => {
 // synchronously and then fires the Firestore upload in the background. If the value
 // contains data URLs they're swapped for Storage URLs before re-broadcasting so other
 // hooks subscribed to the key see the URL-version.
+//
+// Firestore writes are debounced per key (400ms) so rapid typing doesn't cause a storm
+// of writes + snapshot echoes that can revert newer local state.
+const _debounceTimers = {}
 export const saveSyncedJson = (key, value) => {
   saveJson(key, value)
   if (!_currentUser || !PROFILE_SYNC_KEYS.includes(key)) return
-  void (async () => {
-    try {
-      const sanitized = await syncProfileKey(_currentUser.uid, key, value)
-      if (JSON.stringify(sanitized) !== JSON.stringify(value)) {
-        window.dispatchEvent(new CustomEvent(`mint-sync:${key}`, { detail: sanitized }))
-      }
-    } catch (e) { console.warn('saveSyncedJson failed for', key, e) }
-  })()
+  clearTimeout(_debounceTimers[key])
+  _debounceTimers[key] = setTimeout(() => {
+    const uid = _currentUser?.uid
+    if (!uid) return
+    void (async () => {
+      try {
+        const sanitized = await syncProfileKey(uid, key, value)
+        if (JSON.stringify(sanitized) !== JSON.stringify(value)) {
+          window.dispatchEvent(new CustomEvent(`mint-sync:${key}`, { detail: sanitized }))
+        }
+      } catch (e) { console.warn('saveSyncedJson failed for', key, e) }
+    })()
+  }, 400)
 }
 
 // First-sign-in push: send any local profile data up to Firestore so other devices see it.
@@ -171,6 +180,8 @@ export const uploadAllProfileToFirestore = async (uid) => {
 
 // Subscribe to remote updates for every profile key. Each update is mirrored to localStorage
 // and broadcast as a `mint-sync:<key>` window event — useSyncedJson hooks listen and re-render.
+// Snapshot echoes from our own writes are skipped (value matches localStorage) to prevent
+// reverting newer local state during rapid edits.
 export const subscribeToProfileKeys = (uid) => {
   const unsubs = PROFILE_SYNC_KEYS.map((key) =>
     onSnapshot(profileDocRef(uid, key), (snap) => {
@@ -178,6 +189,10 @@ export const subscribeToProfileKeys = (uid) => {
       const data = snap.data()
       const value = data?.value
       if (value === undefined) return
+      // Skip if this is an echo of what we already have locally — prevents snapshot
+      // callbacks from an earlier write reverting a newer in-flight local change.
+      const local = loadJson(key)
+      if (JSON.stringify(value) === JSON.stringify(local)) return
       saveJson(key, value)
       window.dispatchEvent(new CustomEvent(`mint-sync:${key}`, { detail: value }))
     }, (err) => console.warn('profile listen error:', key, err))

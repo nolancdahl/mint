@@ -44,6 +44,7 @@ export const CROSS_APP_MANIFEST = [
 
   // Gym · Arnold
   { app: 'gym',      label: 'Gym: profile (goals, injuries)', coll: 'profile', id: 'gym_profile_v1' },
+  { app: 'gym',      label: 'Gym: workout data (logs, exercises, ORMs)', coll: 'profile', id: 'gym_workout_data_v1' },
 
   // Bucket List · buck it
   { app: 'bucket',   label: 'Bucket list: full state',     coll: 'buckit', id: 'state' },

@@ -129,7 +129,7 @@ const FilterDropdown = ({ label, options, selected, onChange, icon: IconComp, op
       >
         <span style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', minWidth: 0 }}>
           {IconComp && <IconComp size={13} strokeWidth={1.8} style={{ flexShrink: 0 }} />}
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayLabel}</span>
+          <span className="mint-filter-label" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayLabel}</span>
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
           {selected.length > 0 && (

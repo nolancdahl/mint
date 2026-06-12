@@ -209,7 +209,6 @@ function AppShell() {
   ]
 
   const closeAll = () => {
-    setChatOpen(false)
     setClosetAddOpen(false)
     setClosetOutfitOpen(false)
     setShopPasteOpen(false)
@@ -294,12 +293,33 @@ function AppShell() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', paddingBottom: '78px' }}>
+    <div style={{
+      // Fixed-height flex column: header + scrollable main + locked bottom nav.
+      // Locks the bottom nav so only the content area scrolls (phone fix — the whole
+      // page, nav included, used to scroll on the List and Closet pages).
+      height: '100dvh',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+    }}>
       <UpdateBanner />
       <Header
         onLogoClick={() => { setCurrentPage('home'); closeAll() }}
       />
-      <main key={currentPage} className="page-enter" style={{ padding: '18px 18px 32px', maxWidth: '1100px', margin: '0 auto' }}>
+      <main
+        key={currentPage}
+        className="page-enter"
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          padding: '18px 18px 32px',
+          maxWidth: '1100px',
+          margin: '0 auto',
+          width: '100%',
+        }}
+      >
         {renderPage()}
       </main>
       {saveFlash && (

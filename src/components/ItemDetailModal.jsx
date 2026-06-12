@@ -525,6 +525,14 @@ export const ItemDetailModal = ({ item, onClose, onDelete, onUpdate }) => {
   const [detailImgIdx, setDetailImgIdx] = useState(item.displayImageIndex || 0)
   const displayName = item.title || item.name
 
+  // Whichever angle the user views becomes the item's cover on the grid.
+  const goToImage = (idx) => {
+    setDetailImgIdx(idx)
+    if (onUpdate && idx !== (item.displayImageIndex || 0)) {
+      onUpdate({ ...item, displayImageIndex: idx })
+    }
+  }
+
   const startClose = () => {
     if (closing) return
     setClosing(true)
@@ -569,13 +577,13 @@ export const ItemDetailModal = ({ item, onClose, onDelete, onUpdate }) => {
             />
             {detailImages.length > 1 && (
               <>
-                <button onClick={(e) => { e.stopPropagation(); setDetailImgIdx((detailImgIdx - 1 + detailImages.length) % detailImages.length) }} style={{
+                <button onClick={(e) => { e.stopPropagation(); goToImage((detailImgIdx - 1 + detailImages.length) % detailImages.length) }} style={{
                   position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)',
                   width: '28px', height: '28px', borderRadius: '50%',
                   background: 'rgba(0,0,0,0.4)', border: 'none', color: '#fff',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
                 }}><ChevronLeft size={14} strokeWidth={2.5} /></button>
-                <button onClick={(e) => { e.stopPropagation(); setDetailImgIdx((detailImgIdx + 1) % detailImages.length) }} style={{
+                <button onClick={(e) => { e.stopPropagation(); goToImage((detailImgIdx + 1) % detailImages.length) }} style={{
                   position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)',
                   width: '28px', height: '28px', borderRadius: '50%',
                   background: 'rgba(0,0,0,0.4)', border: 'none', color: '#fff',

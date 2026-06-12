@@ -90,3 +90,9 @@ input, textarea, select { font-family: inherit; }
 .mint-leaf { animation: leafFall 4s ease-in-out infinite; }
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { scrollbar-width: none; }
+
+/* On phones, the sort/filter pills go icon-only so the whole row fits without
+   wrapping/scrolling. The active (green) state + clear-x still signal a filter. */
+@media (max-width: 560px) {
+  .mint-filter-label { display: none; }
+}

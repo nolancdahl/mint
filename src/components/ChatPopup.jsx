@@ -1,6 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { COLORS, FONTS } from '../lib/theme'
 import { SendIcon } from './Icons'
+import { loadJson } from '../lib/storage'
+import { CLOSET_KEY, WISHLIST_KEY } from '../lib/constants'
+import { db, auth } from '../lib/firebase'
+import { buildCrossAppBlock } from '../lib/crossAppContext'
+
+const PROFILE_KEY = 'garmint_profile_v1'
 
 const PROMPT_POOL = [
   'What colors go well with olive chinos?',
@@ -52,29 +58,118 @@ const getDailyPrompts = () => {
   return shuffled.slice(0, 8)
 }
 
+// Same context builder used by ExpertPage — gives Jeeves the user's mint data.
+const buildOwnAppContext = () => {
+  const profile = loadJson(PROFILE_KEY)
+  const profileObj = (profile && typeof profile === 'object' && !Array.isArray(profile)) ? profile : {}
+  const brandFits = loadJson('garmint_brand_fits_v2')
+  const saleBrands = loadJson('garmint_sale_brands_v1')
+  const colorPalette = loadJson('garmint_color_palette_v1')
+  const closet = loadJson(CLOSET_KEY)
+  const wishlist = loadJson(WISHLIST_KEY)
+
+  const sections = []
+
+  const stylePrefs = profileObj.stylePrefs || ''
+  if (stylePrefs.trim()) sections.push(`### Style preferences\n${stylePrefs}`)
+
+  const meas = profileObj.measurements || {}
+  const filledMeas = Object.entries(meas).filter(([, v]) => v && String(v).trim())
+  if (filledMeas.length > 0) sections.push(`### Body measurements\n${JSON.stringify(Object.fromEntries(filledMeas))}`)
+
+  const fits = Array.isArray(brandFits) ? brandFits : []
+  if (fits.length > 0) {
+    const compact = fits.slice(0, 40).map(({ brand, name, size, fitNotes, categories, tags, colors }) =>
+      JSON.stringify({ brand, name, size, fitNotes, categories, tags, colors })
+    )
+    sections.push(`### Brand size fits (${fits.length} entries)\n${compact.join('\n')}`)
+  }
+
+  if (colorPalette && typeof colorPalette === 'object' && colorPalette.season) {
+    sections.push(`### Color palette analysis\n${JSON.stringify(colorPalette)}`)
+  }
+
+  const brands = Array.isArray(saleBrands) ? saleBrands : []
+  if (brands.length > 0) sections.push(`### Tracked brands\n${JSON.stringify(brands.map(b => b.name))}`)
+
+  const closetArr = Array.isArray(closet) ? closet : []
+  const wishArr = Array.isArray(wishlist) ? wishlist : []
+  if (closetArr.length > 0) {
+    const compact = closetArr.slice(0, 50).map(({ name, brand, category, color, size, notes }) =>
+      JSON.stringify({ name, brand, category, color, size, notes })
+    )
+    sections.push(`### Closet (${closetArr.length} items)\n${compact.join('\n')}`)
+  }
+  if (wishArr.length > 0) {
+    const compact = wishArr.slice(0, 50).map(({ name, brand, category, color, size, notes, price }) =>
+      JSON.stringify({ name, brand, category, color, size, notes, price })
+    )
+    sections.push(`### Wishlist (${wishArr.length} items)\n${compact.join('\n')}`)
+  }
+
+  if (sections.length === 0) return ''
+  return 'THIS APP (MINT / CLOTHES) — the user\'s wardrobe data\n\n' + sections.join('\n\n')
+}
+
 export const ChatPopup = ({ isOpen, onClose }) => {
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([])
+  const [sending, setSending] = useState(false)
+  const [crossApp, setCrossApp] = useState('')
   const msgEndRef = useRef(null)
   const inputRef = useRef(null)
   const dailyPrompts = useMemo(() => getDailyPrompts(), [])
+
+  // Fetch cross-app context once when the popup opens.
+  useEffect(() => {
+    if (!isOpen) return
+    const uid = auth?.currentUser?.uid
+    if (!db || !uid) return
+    let cancelled = false
+    buildCrossAppBlock(db, uid, { excludeApp: 'clothes' }).then((block) => {
+      if (!cancelled) setCrossApp(block)
+    })
+    return () => { cancelled = true }
+  }, [isOpen])
 
   useEffect(() => {
     if (msgEndRef.current) msgEndRef.current.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const sendMessage = (text) => {
+  const sendMessage = async (text) => {
     const trimmed = (text || input).trim()
-    if (!trimmed) return
-    setMessages((prev) => [...prev, { role: 'user', text: trimmed }])
+    if (!trimmed || sending) return
+
+    const userMsg = { role: 'user', text: trimmed }
+    const nextHistory = [...messages, userMsg]
+    setMessages(nextHistory)
     setInput('')
-    // Simulate Jeeves response
-    setTimeout(() => {
+    setSending(true)
+
+    try {
+      const res = await fetch('https://nolan-jeeves.netlify.app/.netlify/functions/jeeves-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: nextHistory.map((m) => ({ role: m.role, text: m.text })),
+          userContext: { crossApp: [buildOwnAppContext(), crossApp].filter(Boolean).join('\n\n') },
+          appKey: 'clothes',
+        }),
+      })
+      let data = {}
+      try { data = await res.json() } catch { /* non-JSON body */ }
+      if (!res.ok || !data.text) {
+        throw new Error(data.error || `Jeeves unreachable (HTTP ${res.status})`)
+      }
+      setMessages((prev) => [...prev, { role: 'jeeves', text: data.text }])
+    } catch (e) {
       setMessages((prev) => [...prev, {
         role: 'jeeves',
-        text: "I'm still getting set up, but I'll be able to help with that soon. Stay tuned!",
+        text: `I had trouble reaching the network just now — ${e.message}. Try again in a moment.`,
       }])
-    }, 600)
+    } finally {
+      setSending(false)
+    }
   }
 
   const handleKeyDown = (e) => {
@@ -84,7 +179,7 @@ export const ChatPopup = ({ isOpen, onClose }) => {
     }
   }
 
-  const canSend = input.trim().length > 0
+  const canSend = input.trim().length > 0 && !sending
 
   return (
     <>
@@ -179,6 +274,17 @@ export const ChatPopup = ({ isOpen, onClose }) => {
                   {msg.text}
                 </div>
               ))}
+              {sending && (
+                <div style={{
+                  alignSelf: 'flex-start', maxWidth: '85%',
+                  padding: '10px 14px',
+                  borderRadius: '14px 14px 14px 4px',
+                  background: COLORS.creamDeep, color: COLORS.textFaint,
+                  fontFamily: FONTS.sub, fontSize: '13px', fontStyle: 'italic',
+                }}>
+                  Thinking...
+                </div>
+              )}
               <div ref={msgEndRef} />
             </div>
           )}

@@ -4,10 +4,10 @@ import { COLORS } from '../lib/theme'
 export const BottomNav = ({ pages, current, onChange }) => (
   <nav
     style={{
-      position: 'fixed',
-      bottom: 0,
-      left: 0,
-      right: 0,
+      // Static flex child of the app shell's fixed-height column, so it stays locked
+      // at the bottom while only the <main> content area scrolls. flexShrink:0 keeps it
+      // from collapsing when the content is tall.
+      flexShrink: 0,
       background: COLORS.creamLight,
       borderTop: `1px solid ${COLORS.greenLine}`,
       padding: '12px 4px 14px',

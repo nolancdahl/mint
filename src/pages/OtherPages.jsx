@@ -9,10 +9,11 @@ import { SHOPPING_CATEGORIES, CLOSET_KEY, WISHLIST_KEY } from '../lib/constants'
 import { db, auth } from '../lib/firebase'
 import { buildCrossAppBlock } from '../lib/crossAppContext'
 
-// Snapshot of the user's saved profile data to send with each Jeeves chat request.
-// The Netlify function embeds this in the system prompt so Claude can ground answers in
-// the user's actual measurements, brand fits, color palette, etc.
-const gatherUserContext = () => {
+// Build a text block of the user's mint-specific profile data so Jeeves can ground
+// answers in their actual measurements, style preferences, brand fits, etc.
+// The jeeves-chat function only reads `userContext.crossApp`, and crossApp excludes
+// the calling app's own data — so we build this separately and prepend it.
+const buildOwnAppContext = () => {
   const profile = loadJson(PROFILE_KEY)
   const profileObj = (profile && typeof profile === 'object' && !Array.isArray(profile)) ? profile : {}
   const brandFits = loadJson('garmint_brand_fits_v2')
@@ -20,15 +21,46 @@ const gatherUserContext = () => {
   const colorPalette = loadJson('garmint_color_palette_v1')
   const closet = loadJson(CLOSET_KEY)
   const wishlist = loadJson(WISHLIST_KEY)
-  return {
-    stylePrefs: profileObj.stylePrefs || '',
-    measurements: profileObj.measurements || {},
-    brandFits: Array.isArray(brandFits) ? brandFits : [],
-    saleBrands: Array.isArray(saleBrands) ? saleBrands : [],
-    colorPalette: (colorPalette && typeof colorPalette === 'object' && !Array.isArray(colorPalette) && colorPalette.season) ? colorPalette : null,
-    closetItemCount: Array.isArray(closet) ? closet.length : 0,
-    wishlistItemCount: Array.isArray(wishlist) ? wishlist.length : 0,
+
+  const sections = []
+
+  const stylePrefs = profileObj.stylePrefs || ''
+  if (stylePrefs.trim()) sections.push(`### Style preferences\n${stylePrefs}`)
+
+  const meas = profileObj.measurements || {}
+  const filledMeas = Object.entries(meas).filter(([, v]) => v && String(v).trim())
+  if (filledMeas.length > 0) sections.push(`### Body measurements\n${JSON.stringify(Object.fromEntries(filledMeas))}`)
+
+  const fits = Array.isArray(brandFits) ? brandFits : []
+  if (fits.length > 0) {
+    const compact = fits.slice(0, 40).map(({ brand, name, size, fitNotes, categories, tags, colors }) =>
+      JSON.stringify({ brand, name, size, fitNotes, categories, tags, colors })
+    )
+    sections.push(`### Brand size fits (${fits.length} entries)\n${compact.join('\n')}`)
   }
+
+  if (colorPalette && typeof colorPalette === 'object' && colorPalette.season) {
+    sections.push(`### Color palette analysis\n${JSON.stringify(colorPalette)}`)
+  }
+
+  const brands = Array.isArray(saleBrands) ? saleBrands : []
+  if (brands.length > 0) sections.push(`### Tracked brands\n${JSON.stringify(brands.map(b => b.name))}`)
+
+  const closetArr = Array.isArray(closet) ? closet : []
+  const wishArr = Array.isArray(wishlist) ? wishlist : []
+  if (closetArr.length > 0 || wishArr.length > 0) {
+    const closetCompact = closetArr.slice(0, 50).map(({ name, brand, category, color, size, notes }) =>
+      JSON.stringify({ name, brand, category, color, size, notes })
+    )
+    const wishCompact = wishArr.slice(0, 50).map(({ name, brand, category, color, size, notes, price }) =>
+      JSON.stringify({ name, brand, category, color, size, notes, price })
+    )
+    if (closetCompact.length > 0) sections.push(`### Closet (${closetArr.length} items)\n${closetCompact.join('\n')}`)
+    if (wishCompact.length > 0) sections.push(`### Wishlist (${wishArr.length} items)\n${wishCompact.join('\n')}`)
+  }
+
+  if (sections.length === 0) return ''
+  return 'THIS APP (MINT / CLOTHES) — the user\'s wardrobe data\n\n' + sections.join('\n\n')
 }
 
 // Section title with a circular + button inline on the right.
@@ -499,7 +531,7 @@ export const ExpertPage = ({ prefill, onPrefillConsumed }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: nextHistory.map((m) => ({ role: m.role, text: m.text })),
-          userContext: { ...gatherUserContext(), crossApp },
+          userContext: { crossApp: [buildOwnAppContext(), crossApp].filter(Boolean).join('\n\n') },
           appKey: 'clothes',
         }),
       })
@@ -1812,12 +1844,16 @@ const SaleTrackingSection = ({ onAddRef }) => {
 
   const handleAdd = () => {
     if (!form.name) return
-    saveBrands((prev) => [...(prev || []), { ...form, id: Date.now(), lastChecked: null }])
+    saveBrands((prev) => [...(prev || []), { ...form, id: Date.now(), checked: false }])
     setForm({ name: '', url: '' })
     setAdding(false)
   }
 
   const handleRemove = (idx) => saveBrands((prev) => (prev || []).filter((_, i) => i !== idx))
+
+  const toggleChecked = (idx) => saveBrands((prev) => (prev || []).map((b, i) =>
+    i === idx ? { ...b, checked: !b.checked } : b
+  ))
 
   return (
     <>
@@ -1827,16 +1863,33 @@ const SaleTrackingSection = ({ onAddRef }) => {
         </div>
       )}
 
-      {(brands || []).map((brand, idx) => (
+      {(brands || []).map((b, i) => ({ b, i })).sort((a, b) => (a.b.name || '').localeCompare(b.b.name || '')).map(({ b: brand, i: idx }) => (
         <div key={brand.id || idx} style={{
           padding: '10px 14px', background: COLORS.creamDeep, borderRadius: '8px',
-          marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '10px',
         }}>
-          <div>
-            <div style={{ fontFamily: FONTS.sub, fontSize: '12px', fontWeight: 600, color: COLORS.text }}>{brand.name}</div>
-            {brand.url && <div style={{ fontFamily: FONTS.sub, fontSize: '10px', color: COLORS.textFaint, marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>{brand.url}</div>}
+          <button onClick={() => toggleChecked(idx)} style={{
+            width: '20px', height: '20px', borderRadius: '4px', flexShrink: 0,
+            border: `1.5px solid ${brand.checked ? COLORS.green : COLORS.greenLine}`,
+            background: brand.checked ? COLORS.green : 'transparent',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', padding: 0, transition: 'all 0.15s',
+          }}>
+            {brand.checked && <CheckIcon size={13} strokeWidth={2.5} style={{ color: COLORS.cream }} />}
+          </button>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {brand.url ? (
+              <a href={brand.url} target="_blank" rel="noopener noreferrer" style={{
+                fontFamily: FONTS.sub, fontSize: '12px', fontWeight: 600,
+                color: COLORS.green, textDecoration: 'none',
+              }} onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
+                 onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+              >{brand.name}</a>
+            ) : (
+              <div style={{ fontFamily: FONTS.sub, fontSize: '12px', fontWeight: 600, color: COLORS.text }}>{brand.name}</div>
+            )}
           </div>
-          <button onClick={() => handleRemove(idx)} style={{ background: 'transparent', border: 'none', color: COLORS.textFaint, cursor: 'pointer', padding: '4px' }}>
+          <button onClick={() => handleRemove(idx)} style={{ background: 'transparent', border: 'none', color: COLORS.textFaint, cursor: 'pointer', padding: '4px', flexShrink: 0 }}>
             <XIcon size={12} />
           </button>
         </div>

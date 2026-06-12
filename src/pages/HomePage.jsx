@@ -3,10 +3,12 @@ import { PageTitle, SectionTitle } from '../components/Primitives'
 import { WeatherTile } from '../components/WeatherTile'
 import { COLORS, FONTS } from '../lib/theme'
 import { CalendarIcon, ShirtIcon, ImageIcon, ShoppingBagIcon, ExternalIcon, LayersIcon } from '../components/Icons'
-import { loadJson } from '../lib/storage'
-import { CLOSET_KEY } from '../lib/constants'
+import { loadJson, saveJson } from '../lib/storage'
+import { CLOSET_KEY, WISHLIST_KEY } from '../lib/constants'
 
 const SALE_BRANDS_KEY = 'garmint_sale_brands_v1'
+const PROFILE_KEY = 'garmint_profile_v1'
+const RECS_CACHE_KEY = 'garmint_recs_cache_v1'
 
 const ActionTile = ({ icon: IconComp, label, description, onClick }) => (
   <button
@@ -48,7 +50,6 @@ const pickFromCloset = (items, typeList) => {
 }
 
 const generateOutfit = (items, seed) => {
-  // Deterministic random with seed
   const rng = (s) => { s = Math.imul(s ^ (s >>> 16), 0x45d9f3b); s = Math.imul(s ^ (s >>> 16), 0x45d9f3b); return ((s ^ (s >>> 16)) >>> 0) / 4294967296 }
   const shuffled = [...items].sort(() => rng(seed++) - 0.5)
 
@@ -134,6 +135,96 @@ const NotificationItem = ({ text, link }) => (
   </div>
 )
 
+// Product recommendation card with image, name, brand, price, link
+const RecCard = ({ item }) => {
+  const hasImage = !!item.image
+  return (
+    <a
+      href={item.url || '#'}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="tile"
+      style={{
+        overflow: 'hidden', padding: 0, position: 'relative',
+        textDecoration: 'none', cursor: 'pointer', display: 'flex',
+        flexDirection: 'column', color: COLORS.text,
+      }}
+    >
+      {/* Image area */}
+      <div style={{
+        aspectRatio: '3/4', overflow: 'hidden',
+        background: hasImage ? COLORS.creamDeep : COLORS.green,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        position: 'relative',
+      }}>
+        {hasImage ? (
+          <img src={item.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex' }}
+          />
+        ) : null}
+        {/* Fallback shown when no image or image fails */}
+        <div style={{
+          display: hasImage ? 'none' : 'flex',
+          position: 'absolute', inset: 0,
+          flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          background: COLORS.green, color: COLORS.cream, padding: '12px', textAlign: 'center',
+        }}>
+          <div style={{ fontFamily: FONTS.sub, fontSize: '9px', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.16em', fontWeight: 600 }}>From</div>
+          <div className="title-bold" style={{ fontSize: '15px', lineHeight: 1.1, marginTop: '4px' }}>{item.brand}</div>
+        </div>
+      </div>
+
+      {/* Info */}
+      <div style={{ padding: '10px 10px 12px' }}>
+        <div style={{
+          fontFamily: FONTS.sub, fontSize: '9px', textTransform: 'uppercase',
+          letterSpacing: '0.14em', fontWeight: 600, color: COLORS.textMuted,
+        }}>{item.brand}</div>
+        <div style={{
+          fontFamily: FONTS.sub, fontSize: '12px', fontWeight: 600, color: COLORS.text,
+          marginTop: '2px', lineHeight: 1.25,
+          overflow: 'hidden', textOverflow: 'ellipsis',
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+        }}>{item.name}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
+          {item.price && (
+            <div style={{
+              fontFamily: FONTS.sub, fontSize: '12px', fontWeight: 700, color: COLORS.green,
+            }}>{item.price.startsWith('$') ? item.price : `$${item.price}`}</div>
+          )}
+          <ExternalIcon size={11} strokeWidth={2} style={{ color: COLORS.textFaint }} />
+        </div>
+        {item.reason && (
+          <div style={{
+            fontFamily: FONTS.sub, fontSize: '10px', color: COLORS.textFaint,
+            marginTop: '6px', lineHeight: 1.35, fontStyle: 'italic',
+            overflow: 'hidden', textOverflow: 'ellipsis',
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          }}>{item.reason}</div>
+        )}
+      </div>
+    </a>
+  )
+}
+
+// Loading skeleton for recommendations
+const RecSkeleton = () => (
+  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+    {[0, 1, 2, 3, 4, 5].map(i => (
+      <div key={i} className="tile" style={{ overflow: 'hidden', padding: 0 }}>
+        <div style={{ aspectRatio: '3/4', background: COLORS.creamDeep, animation: 'pulse 1.5s ease-in-out infinite' }} />
+        <div style={{ padding: '10px' }}>
+          <div style={{ height: '8px', width: '40%', background: COLORS.greenLineSoft, borderRadius: '4px', marginBottom: '6px' }} />
+          <div style={{ height: '10px', width: '80%', background: COLORS.greenLineSoft, borderRadius: '4px', marginBottom: '6px' }} />
+          <div style={{ height: '10px', width: '30%', background: COLORS.greenLineSoft, borderRadius: '4px' }} />
+        </div>
+      </div>
+    ))}
+  </div>
+)
+
+const FUNC_BASE = 'https://nolan-mint.netlify.app'
+
 const greeting = (() => {
   const h = new Date().getHours()
   if (h < 12) return 'Good morning'
@@ -159,6 +250,65 @@ export const HomePage = ({ closetCount, wishlistCount, onCreateOutfit, onNavigat
       generateOutfit(closetItems, seed + 2000),
     ]
   }, [closetItems, seed])
+
+  // AI-powered product recommendations — cached daily
+  const [recs, setRecs] = useState(() => {
+    const cached = loadJson(RECS_CACHE_KEY)
+    if (cached && typeof cached === 'object' && !Array.isArray(cached) && cached.date === seed && Array.isArray(cached.items)) {
+      return { items: cached.items, loading: false, error: null }
+    }
+    return { items: [], loading: false, error: null }
+  })
+
+  useEffect(() => {
+    if (saleBrands.length === 0) return
+    // Already have cached recs for today
+    if (recs.items.length > 0) return
+
+    setRecs(prev => ({ ...prev, loading: true }))
+
+    const profile = loadJson(PROFILE_KEY)
+    const profileObj = (profile && typeof profile === 'object' && !Array.isArray(profile)) ? profile : {}
+    const closet = loadJson(CLOSET_KEY)
+    const wishlist = loadJson(WISHLIST_KEY)
+
+    const meas = profileObj.measurements || {}
+    const filledMeas = Object.fromEntries(Object.entries(meas).filter(([, v]) => v && String(v).trim()))
+
+    const closetSummary = Array.isArray(closet) && closet.length > 0
+      ? closet.slice(0, 30).map(i => `${i.brand || ''} ${i.name || ''} (${i.category || ''})`.trim()).join(', ')
+      : ''
+    const wishlistSummary = Array.isArray(wishlist) && wishlist.length > 0
+      ? wishlist.slice(0, 20).map(i => `${i.brand || ''} ${i.name || ''} (${i.category || ''})`.trim()).join(', ')
+      : ''
+
+    const colorPalette = loadJson('garmint_color_palette_v1')
+
+    fetch(`${FUNC_BASE}/.netlify/functions/recommend-items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        stylePrefs: profileObj.stylePrefs || '',
+        measurements: Object.keys(filledMeas).length > 0 ? filledMeas : null,
+        brandFits: loadJson('garmint_brand_fits_v2') || [],
+        saleBrands,
+        closetSummary,
+        wishlistSummary,
+        colorPalette: (colorPalette && typeof colorPalette === 'object' && colorPalette.season) ? colorPalette : null,
+      }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        const items = data.items || []
+        if (items.length > 0) {
+          saveJson(RECS_CACHE_KEY, { date: seed, items })
+        }
+        setRecs({ items, loading: false, error: null })
+      })
+      .catch(err => {
+        setRecs({ items: [], loading: false, error: err.message })
+      })
+  }, [saleBrands.length > 0]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>
@@ -206,8 +356,7 @@ export const HomePage = ({ closetCount, wishlistCount, onCreateOutfit, onNavigat
         <NotificationItem text="No sale alerts yet. Add brands to your profile and items to your list to get notified." />
       </div>
 
-      {/* Outfit suggestions — 3 large tiles matching Recommended Items width.
-          Each tile contains a 2-col grid of items rendered as squares with the item label below. */}
+      {/* Outfit suggestions */}
       <SectionTitle>Today's Outfits</SectionTitle>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', alignItems: 'stretch' }}>
         <OutfitCard pieces={outfits[0]} label="Option 1" onClick={onCreateOutfit} />
@@ -215,15 +364,23 @@ export const HomePage = ({ closetCount, wishlistCount, onCreateOutfit, onNavigat
         <OutfitCard pieces={outfits[2]} label="Option 3" onClick={onCreateOutfit} />
       </div>
 
-      {/* Recommended Items — pulled from brands tracked in Profile → Sale Tracking.
-          Real product feeds aren't wired up yet; tiles act as quick links to each brand. */}
+      {/* AI-powered product recommendations */}
       <div style={{ marginTop: '20px' }}>
-        <SectionTitle>Recommended Items</SectionTitle>
+        <SectionTitle>Recommended for You</SectionTitle>
         {saleBrands.length === 0 ? (
           <div className="tile" style={{ padding: '20px', textAlign: 'center', color: COLORS.textMuted, fontFamily: FONTS.sub, fontSize: '12px', fontStyle: 'italic' }}>
-            Add brands in Profile → Sale Tracking to see online recommendations from them here.
+            Add brands in Profile to see personalized recommendations here.
+          </div>
+        ) : recs.loading ? (
+          <RecSkeleton />
+        ) : recs.items.length > 0 ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+            {recs.items.slice(0, 6).map((item, i) => (
+              <RecCard key={item.url || i} item={item} />
+            ))}
           </div>
         ) : (
+          /* Fallback: show brand quick-links when AI recs aren't available yet */
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
             {saleBrands.slice(0, 6).map((brand, i) => (
               <a
@@ -257,6 +414,14 @@ export const HomePage = ({ closetCount, wishlistCount, onCreateOutfit, onNavigat
       </div>
 
       <DailyQuoteTip seed={seed} />
+
+      {/* Pulse animation for skeleton loader */}
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+      `}</style>
     </div>
   )
 }
@@ -307,9 +472,6 @@ const DailyQuoteTip = ({ seed }) => {
     letterSpacing: '0.22em', fontWeight: 600, color: COLORS.textMuted,
     marginBottom: '4px',
   }
-  // Section-title style label sits OUTSIDE the tile; everything else is inside.
-  // `align-items: stretch` (grid default) makes the two columns equal height; each column is
-  // itself a flex column with the inner tile set to flex:1 so the tiles match in height too.
   const column = { display: 'flex', flexDirection: 'column' }
   const tileFill = { ...tileStyle, flex: 1 }
   return (
@@ -318,7 +480,6 @@ const DailyQuoteTip = ({ seed }) => {
       display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px',
       alignItems: 'stretch',
     }}>
-      {/* Tip column */}
       <div style={column}>
         <div style={eyebrow}>Tip</div>
         <div style={tileFill}>
@@ -332,14 +493,13 @@ const DailyQuoteTip = ({ seed }) => {
           }}>{tip.text}</div>
         </div>
       </div>
-      {/* Quote column */}
       <div style={column}>
         <div style={eyebrow}>Quote</div>
         <div style={tileFill}>
           <div style={{
             fontFamily: FONTS.title, fontSize: '14px', lineHeight: 1.35,
             fontStyle: 'italic', color: COLORS.text,
-          }}>“{quote.text}”</div>
+          }}>"{quote.text}"</div>
           <div className="title-bold" style={{
             fontFamily: FONTS.title, fontSize: '10px', marginTop: '8px',
             lineHeight: 1.15, letterSpacing: '-0.01em', color: COLORS.green,

@@ -12,14 +12,22 @@ const COLLECTIONS = {
   [INSPO_KEY]: 'inspo',
 }
 
+// Timestamp of our most recent local write per key. Any incoming snapshot whose
+// updatedAt is not strictly newer than this is an echo of a write we already made
+// (or a stale, slower-arriving earlier write), so we ignore it. Without this, a
+// delayed echo could overwrite a just-added item and make it vanish.
+const _lastLocalWrite = {}
+
 // Write a full array to a single Firestore doc per collection
 // We store as a single doc to keep reads/writes minimal
 const userDocRef = (uid, key) =>
   doc(db, 'users', uid, 'data', COLLECTIONS[key])
 
 export const uploadToFirestore = async (uid, key, items) => {
+  const ts = Date.now()
+  _lastLocalWrite[key] = ts
   try {
-    await setDoc(userDocRef(uid, key), { items, updatedAt: Date.now() })
+    await setDoc(userDocRef(uid, key), { items, updatedAt: ts })
   } catch (e) {
     console.warn('Firestore write failed:', e)
   }
@@ -28,9 +36,11 @@ export const uploadToFirestore = async (uid, key, items) => {
 export const uploadAllToFirestore = async (uid) => {
   try {
     const batch = writeBatch(db)
+    const ts = Date.now()
     for (const key of Object.keys(COLLECTIONS)) {
       const items = loadJson(key)
-      batch.set(userDocRef(uid, key), { items, updatedAt: Date.now() })
+      _lastLocalWrite[key] = ts
+      batch.set(userDocRef(uid, key), { items, updatedAt: ts })
     }
     await batch.commit()
   } catch (e) {
@@ -42,10 +52,16 @@ export const uploadAllToFirestore = async (uid) => {
 // Returns an unsubscribe function
 export const subscribeToCollection = (uid, key, onData) => {
   return onSnapshot(userDocRef(uid, key), (snap) => {
-    if (snap.exists()) {
-      const data = snap.data()
-      onData(data.items || [])
-    }
+    if (!snap.exists()) return
+    const data = snap.data()
+    const items = data.items || []
+    const ts = data.updatedAt || 0
+    // Ignore echoes of our own (or stale earlier) writes so a slow snapshot can't
+    // revert a newer local change. Only genuinely newer remote data is applied.
+    if (ts <= (_lastLocalWrite[key] || 0)) return
+    // Belt-and-suspenders: also skip if the payload already matches what we have.
+    if (JSON.stringify(items) === JSON.stringify(loadJson(key))) return
+    onData(items)
   }, (err) => {
     console.warn('Firestore listen error:', err)
   })

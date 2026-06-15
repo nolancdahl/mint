@@ -64,6 +64,50 @@ const buildRecommendation = (temp, code, rain) => {
   return `${weather} ${advice}${rainNote}`
 }
 
+// Day-aware recommendation: looks across the rest of today's hours and dresses you for the
+// whole day's arc (its warm peak, cool dips, and *when* rain is likely) — not just right now.
+const clothingFor = (t) => {
+  if (t < 45) return 'bundle up with heavy layers and a warm coat'
+  if (t < 55) return 'a mid-layer and a light jacket'
+  if (t < 65) return 'a light top layer'
+  if (t < 72) return 'breathable layers, nothing heavy'
+  if (t < 78) return 'light, airy fabrics'
+  return 'the lightest, loosest things you have'
+}
+
+const partOfDay = (h) => (h < 11 ? 'the morning' : h < 14 ? 'midday' : h < 18 ? 'the afternoon' : 'the evening')
+
+const buildDayRecommendation = (hours) => {
+  if (!hours || hours.length === 0) return null
+  const temps = hours.map((h) => h.temp)
+  const hi = Math.max(...temps)
+  const lo = Math.min(...temps)
+
+  let s = `Tops out around ${hi}°F — go with ${clothingFor(hi)}.`
+  if (hi - lo >= 10) {
+    const coolHour = hours.reduce((a, b) => (b.temp < a.temp ? b : a))
+    s += ` It dips to ${lo}° in ${partOfDay(coolHour.hour)}, so bring a layer you can shed.`
+  }
+
+  const wet = hours.filter((h) => h.rain >= 45)
+  if (wet.length) {
+    const parts = []
+    for (const h of wet) {
+      const p = partOfDay(h.hour)
+      const existing = parts.find((x) => x.p === p)
+      if (existing) existing.peak = Math.max(existing.peak, h.rain)
+      else parts.push({ p, peak: h.rain })
+    }
+    const when = parts.map((x) => x.p).join(' and ')
+    const peak = Math.max(...wet.map((h) => h.rain))
+    s += ` Rain likely in ${when} (up to ${peak}%) — bring an umbrella.`
+  } else {
+    const maybe = hours.some((h) => h.rain >= 25)
+    s += maybe ? ' Slight chance of a shower — maybe pack an umbrella.' : ' Looks dry all day.'
+  }
+  return s
+}
+
 // Horizontal scrolling strip with explicit left/right scroll arrows.
 // The arrows fade out at the start/end of the scroll range so they only show when there's somewhere to go.
 const HourlyStrip = ({ children }) => {
@@ -162,11 +206,18 @@ export const WeatherTile = () => {
   const todayHigh = Math.round(data.daily.temperature_2m_max[0])
   const todayLow = Math.round(data.daily.temperature_2m_min[0])
   const todayRain = data.daily.precipitation_probability_max[0]
-  const recommendation = buildRecommendation(currentTemp, data.current.weather_code, todayRain)
 
   // 24 hourly entries starting from current
   const now = new Date()
   const hourlyTimes = data.hourly.time
+
+  // The rest of *today* (from now to midnight) — drives the day-aware recommendation.
+  const todayHours = hourlyTimes
+    .map((t, i) => ({ d: new Date(t), temp: Math.round(data.hourly.temperature_2m[i]), rain: data.hourly.precipitation_probability[i] || 0 }))
+    .filter((h) => h.d.getTime() >= now.getTime() - 30 * 60 * 1000 && h.d.getDate() === now.getDate() && h.d.getMonth() === now.getMonth())
+    .map((h) => ({ ...h, hour: h.d.getHours() }))
+  const recommendation = buildDayRecommendation(todayHours)
+    || buildRecommendation(currentTemp, data.current.weather_code, todayRain)
   let startIdx = hourlyTimes.findIndex((t) => new Date(t).getTime() > now.getTime() - 30 * 60 * 1000)
   if (startIdx < 0) startIdx = 0
   const hourly = Array.from({ length: 24 }, (_, i) => {

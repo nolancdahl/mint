@@ -214,62 +214,91 @@ const CircleButton = ({ onClick, children }) => (
   </button>
 )
 
-// Dropdown filter button
+// Dropdown filter button — circle by default, expands to pill on tap
 const FilterDropdown = ({ label, options, selected, onChange, icon: IconComp, optionKind }) => {
   const [open, setOpen] = useState(false)
-
-  const displayLabel = selected.length === 0 ? label : selected.join(', ')
+  const [expanded, setExpanded] = useState(false)
+  const isActive = selected.length > 0
+  const showPill = expanded || isActive
+  const displayLabel = isActive
+    ? (selected.length === 1 ? selected[0] : `${selected.length} active`)
+    : label
 
   const toggle = (opt) => {
-    if (selected.includes(opt)) {
-      onChange(selected.filter((s) => s !== opt))
-    } else {
-      onChange([...selected, opt])
-    }
+    if (selected.includes(opt)) onChange(selected.filter((s) => s !== opt))
+    else onChange([...selected, opt])
   }
 
+  const handleClick = () => {
+    if (!showPill) { setExpanded(true); setOpen(true) }
+    else setOpen((v) => !v)
+  }
+
+  const handleBackdrop = () => {
+    setOpen(false)
+    if (!isActive) setExpanded(false)
+  }
+
+  const ease = '0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+
   return (
-    <div style={{ flex: 1, position: 'relative', zIndex: open ? 52 : 'auto' }}>
+    <div style={{ position: 'relative', zIndex: open ? 52 : 'auto' }}>
       <button
-        onClick={() => setOpen(!open)}
+        onClick={handleClick}
         style={{
-          width: '100%', padding: '10px 12px',
-          borderRadius: '8px',
-          border: `1px solid ${open ? COLORS.green : COLORS.greenLine}`,
-          background: selected.length > 0 ? COLORS.green : COLORS.creamDeep,
-          color: selected.length > 0 ? COLORS.cream : COLORS.textMuted,
+          height: '36px',
+          padding: showPill ? '0 10px' : '0',
+          minWidth: '36px',
+          maxWidth: showPill ? '240px' : '36px',
+          borderRadius: '999px',
+          border: `1.5px solid ${isActive ? COLORS.green : (open ? COLORS.green : COLORS.greenLine)}`,
+          background: isActive ? COLORS.green : COLORS.creamDeep,
+          color: isActive ? COLORS.cream : COLORS.text,
           fontFamily: FONTS.sub, fontSize: '11px', fontWeight: 600,
           letterSpacing: '0.08em', textTransform: 'uppercase',
-          cursor: 'pointer', display: 'flex', alignItems: 'center',
-          justifyContent: 'space-between', gap: '6px',
-          transition: 'background 0.3s ease, color 0.3s ease, border-color 0.3s ease',
-          position: 'relative', zIndex: 3,
+          cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
+          justifyContent: 'center', gap: showPill ? '5px' : '0',
+          transition: `max-width ${ease}, padding ${ease}, gap ${ease}, background 0.22s, border-color 0.22s, color 0.22s`,
+          overflow: 'hidden', whiteSpace: 'nowrap',
         }}
       >
-        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', minWidth: 0, justifyContent: 'center' }}>
-          {IconComp && <IconComp size={13} strokeWidth={1.8} style={{ flexShrink: 0 }} />}
-          <span className="mint-filter-label" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayLabel}</span>
+        {IconComp && <IconComp size={13} strokeWidth={1.8} style={{ flexShrink: 0 }} />}
+        <span style={{
+          maxWidth: showPill ? '120px' : '0',
+          opacity: showPill ? 1 : 0,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          transition: `max-width ${ease}, opacity 0.18s ease`,
+          display: 'inline-block',
+        }}>
+          {displayLabel}
         </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
-          {selected.length > 0 && (
-            <span
-              onClick={(e) => { e.stopPropagation(); onChange([]); setOpen(false) }}
-              style={{
-                width: '16px', height: '16px', borderRadius: '50%',
-                background: 'rgba(244,238,224,0.3)', display: 'flex',
-                alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-              }}
-            ><XIcon size={10} strokeWidth={2.5} /></span>
-          )}
-          <ChevronDown size={14} strokeWidth={2} />
-        </div>
+        <span
+          onClick={isActive ? (e) => { e.stopPropagation(); onChange([]); setExpanded(false); setOpen(false) } : undefined}
+          style={{
+            width: '14px', height: '14px', borderRadius: '50%',
+            background: 'rgba(244,238,224,0.35)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            cursor: isActive ? 'pointer' : 'default', flexShrink: 0,
+            maxWidth: isActive ? '14px' : '0',
+            opacity: isActive ? 1 : 0,
+            overflow: 'hidden',
+            transition: `max-width ${ease}, opacity 0.18s ease`,
+          }}
+        ><XIcon size={9} strokeWidth={2.5} /></span>
+        <span style={{
+          display: 'inline-flex', alignItems: 'center',
+          maxWidth: (showPill && !isActive) ? '14px' : '0',
+          opacity: (showPill && !isActive) ? 1 : 0,
+          overflow: 'hidden',
+          transition: `max-width ${ease}, opacity 0.18s ease`,
+        }}><ChevronDown size={12} strokeWidth={2} /></span>
       </button>
       {open && (
         <>
-          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 1 }} />
+          <div onClick={handleBackdrop} style={{ position: 'fixed', inset: 0, zIndex: 1 }} />
           <div style={{
-            position: 'absolute', top: '100%', left: 0, right: 0,
-            marginTop: 0, background: COLORS.cream, borderRadius: '0 0 8px 8px',
+            position: 'absolute', top: 'calc(100% + 6px)', left: 0,
+            minWidth: '160px', background: COLORS.cream, borderRadius: '10px',
             border: `1px solid ${COLORS.greenLine}`,
             boxShadow: '0 8px 24px rgba(19, 37, 27, 0.15)',
             zIndex: 2, maxHeight: '200px', overflowY: 'auto',

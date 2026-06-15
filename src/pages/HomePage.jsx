@@ -251,64 +251,7 @@ export const HomePage = ({ closetCount, wishlistCount, onCreateOutfit, onNavigat
     ]
   }, [closetItems, seed])
 
-  // AI-powered product recommendations — cached daily
-  const [recs, setRecs] = useState(() => {
-    const cached = loadJson(RECS_CACHE_KEY)
-    if (cached && typeof cached === 'object' && !Array.isArray(cached) && cached.date === seed && Array.isArray(cached.items)) {
-      return { items: cached.items, loading: false, error: null }
-    }
-    return { items: [], loading: false, error: null }
-  })
-
-  useEffect(() => {
-    if (saleBrands.length === 0) return
-    // Already have cached recs for today
-    if (recs.items.length > 0) return
-
-    setRecs(prev => ({ ...prev, loading: true }))
-
-    const profile = loadJson(PROFILE_KEY)
-    const profileObj = (profile && typeof profile === 'object' && !Array.isArray(profile)) ? profile : {}
-    const closet = loadJson(CLOSET_KEY)
-    const wishlist = loadJson(WISHLIST_KEY)
-
-    const meas = profileObj.measurements || {}
-    const filledMeas = Object.fromEntries(Object.entries(meas).filter(([, v]) => v && String(v).trim()))
-
-    const closetSummary = Array.isArray(closet) && closet.length > 0
-      ? closet.slice(0, 30).map(i => `${i.brand || ''} ${i.name || ''} (${i.category || ''})`.trim()).join(', ')
-      : ''
-    const wishlistSummary = Array.isArray(wishlist) && wishlist.length > 0
-      ? wishlist.slice(0, 20).map(i => `${i.brand || ''} ${i.name || ''} (${i.category || ''})`.trim()).join(', ')
-      : ''
-
-    const colorPalette = loadJson('garmint_color_palette_v1')
-
-    fetch(`${FUNC_BASE}/.netlify/functions/recommend-items`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        stylePrefs: profileObj.stylePrefs || '',
-        measurements: Object.keys(filledMeas).length > 0 ? filledMeas : null,
-        brandFits: loadJson('garmint_brand_fits_v2') || [],
-        saleBrands,
-        closetSummary,
-        wishlistSummary,
-        colorPalette: (colorPalette && typeof colorPalette === 'object' && colorPalette.season) ? colorPalette : null,
-      }),
-    })
-      .then(res => res.json())
-      .then(data => {
-        const items = data.items || []
-        if (items.length > 0) {
-          saveJson(RECS_CACHE_KEY, { date: seed, items })
-        }
-        setRecs({ items, loading: false, error: null })
-      })
-      .catch(err => {
-        setRecs({ items: [], loading: false, error: err.message })
-      })
-  }, [saleBrands.length > 0]) // eslint-disable-line react-hooks/exhaustive-deps
+  // (Removed the "Recommended for You" product-scraping fetch — see note in the JSX below.)
 
   return (
     <div>
@@ -336,13 +279,6 @@ export const HomePage = ({ closetCount, wishlistCount, onCreateOutfit, onNavigat
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '20px' }}>
-        <ActionTile icon={LayersIcon} label="Create Outfit" description="Pick a look" onClick={onCreateOutfit} />
-        <ActionTile icon={CalendarIcon} label="Log outfit" description="Track what you wore" onClick={() => onNavigate && onNavigate('calendar')} />
-        <ActionTile icon={ShoppingBagIcon} label="Add to List" description="Items you want" onClick={() => onNavigate && onNavigate('shopping')} />
-        <ActionTile icon={ImageIcon} label="Add to Lookbook" description="Bookmark a look" onClick={() => onNavigate && onNavigate('inspiration')} />
-      </div>
-
       <WeatherTile />
 
       {/* Notification Center */}
@@ -364,54 +300,9 @@ export const HomePage = ({ closetCount, wishlistCount, onCreateOutfit, onNavigat
         <OutfitCard pieces={outfits[2]} label="Option 3" onClick={onCreateOutfit} />
       </div>
 
-      {/* AI-powered product recommendations */}
-      <div style={{ marginTop: '20px' }}>
-        <SectionTitle>Recommended for You</SectionTitle>
-        {saleBrands.length === 0 ? (
-          <div className="tile" style={{ padding: '20px', textAlign: 'center', color: COLORS.textMuted, fontFamily: FONTS.sub, fontSize: '12px', fontStyle: 'italic' }}>
-            Add brands in Profile to see personalized recommendations here.
-          </div>
-        ) : recs.loading ? (
-          <RecSkeleton />
-        ) : recs.items.length > 0 ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-            {recs.items.slice(0, 6).map((item, i) => (
-              <RecCard key={item.url || i} item={item} />
-            ))}
-          </div>
-        ) : (
-          /* Fallback: show brand quick-links when AI recs aren't available yet */
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-            {saleBrands.slice(0, 6).map((brand, i) => (
-              <a
-                key={brand.id || brand.name || i}
-                href={brand.url || '#'}
-                target={brand.url ? '_blank' : '_self'}
-                rel="noopener noreferrer"
-                className="tile"
-                style={{
-                  aspectRatio: '3/4', overflow: 'hidden', padding: 0, position: 'relative',
-                  textDecoration: 'none', cursor: 'pointer', display: 'flex',
-                  background: COLORS.green, color: COLORS.cream,
-                  alignItems: 'flex-end',
-                }}
-              >
-                <div style={{
-                  position: 'absolute', inset: 0,
-                  background: 'radial-gradient(circle at 30% 20%, rgba(244,238,224,0.2), transparent 60%)',
-                }} />
-                <div style={{ position: 'relative', padding: '12px', width: '100%' }}>
-                  <div style={{ fontFamily: FONTS.sub, fontSize: '9px', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.16em', fontWeight: 600 }}>From</div>
-                  <div className="title-bold" style={{ fontSize: '17px', lineHeight: 1.1, marginTop: '2px' }}>{brand.name}</div>
-                  <div style={{ fontFamily: FONTS.sub, fontSize: '10px', marginTop: '6px', opacity: 0.75, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    Browse latest <ExternalIcon size={11} strokeWidth={2} />
-                  </div>
-                </div>
-              </a>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* "Recommended for You" was removed: dependable per-item scraping from arbitrary
+          retail sites isn't feasible from a serverless function (they bot-block), so the
+          section couldn't reliably surface real individual items. */}
 
       <DailyQuoteTip seed={seed} />
 

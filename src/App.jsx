@@ -282,7 +282,7 @@ function AppShell() {
           />
         )
       case 'calendar':
-        return <CalendarPage onPickOutfit={() => openCreateOutfit()} />
+        return <CalendarPage onPickOutfit={() => openCreateOutfit()} onBack={() => setCurrentPage('closet')} />
       case 'expert':
         return <ExpertPage prefill={chatPrefill} onPrefillConsumed={() => setChatPrefill('')} />
       case 'profile':

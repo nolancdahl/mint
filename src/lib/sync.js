@@ -110,7 +110,8 @@ export const PROFILE_SYNC_KEYS = [
   'garmint_skin_photos_v1',      // skin tone photo array
   'garmint_brand_fits_v2',       // brand fit entries (each may carry images)
   'garmint_sale_brands_v1',      // brands the user follows
-  'garmint_color_palette_v1',    // cached palette analysis result
+  'garmint_color_palette_v1',    // cached palette analysis result (also carries skinNotes + recommendations)
+  'garmint_body_analysis_v1',    // cached body-photo fit analysis (findings + recommendations)
   'garmint_calendar_v1',         // per-day outfit photos
   'garmint_sizes_v1',            // user-added size labels (shared with closet/list)
   'garmint_lorenzo_history_v1',  // Ask-Lorenzo chat history

@@ -93,6 +93,110 @@ const SectionTitleWithAdd = ({ children, subtitle, onAdd }) => (
 const PROFILE_KEY = 'garmint_profile_v1'
 const BODY_PHOTOS_KEY = 'garmint_body_photos_v1'
 
+// Base URL for mint's own Netlify functions. Same host HomePage uses for recommend-items, so the
+// analyze-style vision endpoint works deployed and via `netlify dev` (which proxies the same path).
+// Local Vite (no netlify dev) won't have the function — the analysis hook fails gracefully into
+// a retry state, since the Anthropic key only exists server-side.
+const FUNC_BASE = 'https://nolan-mint.netlify.app'
+const ANALYZE_ENDPOINT = `${FUNC_BASE}/.netlify/functions/analyze-style`
+const ANALYZE_TIMEOUT_MS = 60000
+
+// Call the analyze-style function with a hard client-side timeout so the UI can never spin forever.
+const runStyleAnalysis = async (type, images) => {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS)
+  try {
+    const res = await fetch(ANALYZE_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, images }),
+      signal: controller.signal,
+    })
+    let data = {}
+    try { data = await res.json() } catch { /* non-JSON */ }
+    if (!res.ok) throw new Error(data?.error || `Analysis failed (HTTP ${res.status})`)
+    return data
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+// Time-based progress driver for analysis UIs. Advances through labeled stages while we wait on the
+// backend (the function gives no real progress), capping just under 100% until the caller resolves.
+// Returns { pct, label, start, finish } — start()/finish() let the caller drive it from an effect.
+const useAnalysisProgress = (stages) => {
+  const [pct, setPct] = useState(0)
+  const [stageIdx, setStageIdx] = useState(0)
+  const rafRef = useRef(null)
+  const startedRef = useRef(0)
+
+  const start = useCallback(() => {
+    setPct(0); setStageIdx(0)
+    startedRef.current = Date.now()
+    const tick = () => {
+      const elapsed = Date.now() - startedRef.current
+      // Ease toward ~92% over ~24s so it always looks alive without ever claiming completion.
+      const target = 92 * (1 - Math.exp(-elapsed / 9000))
+      setPct((p) => Math.max(p, Math.min(92, target)))
+      setStageIdx(Math.min(stages.length - 1, Math.floor(elapsed / 4500)))
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+  }, [stages.length])
+
+  const finish = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    setStageIdx(stages.length - 1)
+    setPct(100)
+  }, [stages.length])
+
+  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }, [])
+
+  return { pct, label: stages[stageIdx], start, finish }
+}
+
+// Spinner + animated progress bar + current-stage text. Shared by every analysis section.
+const AnalysisProgress = ({ pct, label, title }) => (
+  <div style={{
+    padding: '22px 18px', borderRadius: '10px', background: COLORS.creamDeep,
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px',
+  }}>
+    <div style={{
+      width: '32px', height: '32px', border: `3px solid ${COLORS.greenLine}`,
+      borderTopColor: COLORS.green, borderRadius: '50%', animation: 'spin 0.9s linear infinite',
+    }} />
+    <div style={{ width: '100%' }}>
+      <div style={{
+        fontFamily: FONTS.sub, fontSize: '12px', color: COLORS.textMuted,
+        fontStyle: 'italic', textAlign: 'center', marginBottom: '10px',
+      }}>{label || title}</div>
+      <div style={{ width: '100%', height: '6px', borderRadius: '999px', background: COLORS.greenLineSoft, overflow: 'hidden' }}>
+        <div style={{
+          width: `${Math.round(pct)}%`, height: '100%', borderRadius: '999px',
+          background: COLORS.green, transition: 'width 0.25s ease',
+        }} />
+      </div>
+    </div>
+  </div>
+)
+
+// Friendly error tile with a retry button — shared by every analysis section.
+const AnalysisError = ({ message, onRetry }) => (
+  <div style={{
+    padding: '20px 18px', borderRadius: '10px', background: COLORS.creamDeep, textAlign: 'center',
+  }}>
+    <div style={{ fontFamily: FONTS.sub, fontSize: '12px', color: COLORS.textMuted, marginBottom: '12px', lineHeight: 1.5 }}>
+      {message || "Couldn't analyze right now."}
+    </div>
+    <button onClick={onRetry} style={{
+      padding: '10px 22px', borderRadius: '999px', border: 'none', cursor: 'pointer',
+      background: COLORS.green, color: COLORS.cream,
+      fontFamily: FONTS.sub, fontSize: '11px', fontWeight: 700,
+      letterSpacing: '0.12em', textTransform: 'uppercase',
+    }}>Tap to retry</button>
+  </div>
+)
+
 // Tiered list of measurements with their "how to measure" hint. Order is preserved by tier.
 // Measurements grouped by body part. The renderer inserts a small header whenever the `group`
 // changes from the previous row, so reordering this array reorders the visual sections.
@@ -272,7 +376,7 @@ const menuBtn = {
   cursor: 'pointer', textAlign: 'left', letterSpacing: '0.04em',
 }
 
-export const CalendarPage = ({ onPickOutfit }) => {
+export const CalendarPage = ({ onPickOutfit, onBack }) => {
   const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
   const today = new Date()
   const todayStr = fmtDate(today.getFullYear(), today.getMonth(), today.getDate())
@@ -314,6 +418,21 @@ export const CalendarPage = ({ onPickOutfit }) => {
 
   return (
     <div>
+      {onBack && (
+        <button
+          onClick={onBack}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: '5px',
+            background: 'transparent', border: 'none',
+            fontFamily: FONTS.sub, fontSize: '11px', fontWeight: 600,
+            letterSpacing: '0.08em', textTransform: 'uppercase',
+            color: COLORS.green, cursor: 'pointer', padding: '0 0 14px',
+          }}
+        >
+          <ChevronLeft size={14} strokeWidth={2} />
+          My Closet
+        </button>
+      )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', gap: '12px' }}>
         <button onClick={prevMonth} aria-label="Previous month" style={navBtn}>
           <ChevronLeft size={16} strokeWidth={1.8} />
@@ -904,6 +1023,12 @@ const EditableRow = ({ label, value, onChange, placeholder, hint }) => {
 
   useEffect(() => { if (editing && inputRef.current) inputRef.current.focus() }, [editing])
 
+  // Keep the draft in sync with the underlying value when we're NOT actively editing.
+  // Without this the draft is frozen at mount-time, so a value that arrives later (cross-device
+  // sync, the shared-profile bridge, or another field's save re-rendering this row) wouldn't show,
+  // and a stale draft could overwrite a newer value on the next blur.
+  useEffect(() => { if (!editing) setDraft(value || '') }, [value, editing])
+
   const save = () => {
     setEditing(false)
     if (onChange) onChange(draft)
@@ -1227,6 +1352,10 @@ const BodyPhotoSection = React.forwardRef((_props, ref) => {
   // Two-step menu: pick which type ('Face'/'Body Front'/...) then Upload or Paste for that slot.
   const [pickingType, setPickingType] = useState(false)
   const [pendingType, setPendingType] = useState(null)
+  // The file picker is async — clicking "Upload" closes the popover (which clears `pendingType`)
+  // before the dialog resolves, so the onChange handler can't read which slot to fill. Stash the
+  // target slot in a ref that outlives the popover so the chosen file lands in the right slot.
+  const uploadTargetRef = useRef(null)
 
   const setPhoto = (type, dataUrl) => setPhotos((prev) => ({ ...(prev || {}), [type]: dataUrl }))
 
@@ -1270,10 +1399,12 @@ const BodyPhotoSection = React.forwardRef((_props, ref) => {
     <div style={{ position: 'relative' }}>
       <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }}
         onChange={async (e) => {
-          if (e.target.files[0] && pendingType) {
-            await handleUpload(pendingType, e.target.files[0])
-            setPendingType(null)
+          const type = uploadTargetRef.current || pendingType
+          if (e.target.files[0] && type) {
+            await handleUpload(type, e.target.files[0])
           }
+          uploadTargetRef.current = null
+          setPendingType(null)
           e.target.value = ''
         }}
       />
@@ -1308,7 +1439,7 @@ const BodyPhotoSection = React.forwardRef((_props, ref) => {
         <div style={{ position: 'absolute', top: '-58px', right: 0, zIndex: 101 }}>
           <PhotoUploadPopover
             onClose={() => setPendingType(null)}
-            onUpload={() => fileRef.current?.click()}
+            onUpload={() => { uploadTargetRef.current = pendingType; fileRef.current?.click() }}
             onPaste={(e) => handlePaste(pendingType, e)}
           />
         </div>
@@ -1417,40 +1548,79 @@ const SkinPhotoSection = React.forwardRef((_props, ref) => {
 })
 
 const COLOR_PALETTE_CACHE_KEY = 'garmint_color_palette_v1'
+const BODY_ANALYSIS_KEY = 'garmint_body_analysis_v1'
 
-// Placeholder palette/season — swapped for Jeeves's real analysis later. Keyed on photo signature
-// (count for now) so it persists between renders without re-analyzing.
-const FAKE_PALETTES = [
-  { season: 'Soft Autumn', undertone: 'Warm-neutral',
-    flatter: ['#C8A36A', '#8E5A3B', '#4A6B4A', '#D9C9A8', '#5C4033'],
-    avoid: ['#FF1493', '#00FFFF'] },
-  { season: 'Cool Winter', undertone: 'Cool',
-    flatter: ['#0B2545', '#7D8597', '#C9D6DF', '#7A1F4E', '#2E3B4E'],
-    avoid: ['#FFD700', '#FF8C00'] },
-  { season: 'Warm Spring', undertone: 'Warm',
-    flatter: ['#E8A87C', '#F4D35E', '#C38D9E', '#5C8975', '#D6883D'],
-    avoid: ['#2F2F4F', '#808080'] },
+const PALETTE_STAGES = [
+  'Reading your photos…',
+  'Reading undertone…',
+  'Matching your season…',
+  'Building your palette…',
 ]
+
+// Map the analyze-style 'skin' response into the cached shape the rest of the app reads:
+// { season, undertone, flatter:[...], avoid:[...] } plus skinNotes + recommendations for the
+// findings section. Defensive about missing/short arrays so a sparse model reply still renders.
+const toPaletteCache = (r) => {
+  if (!r || typeof r !== 'object') return null
+  const p = r.palette || {}
+  const flatter = Array.isArray(p.flatter) ? p.flatter.filter(Boolean).slice(0, 5) : []
+  const avoid = Array.isArray(p.avoid) ? p.avoid.filter(Boolean).slice(0, 2) : []
+  return {
+    season: r.season || 'Your palette',
+    undertone: r.undertone || '—',
+    flatter,
+    avoid,
+    skinNotes: r.skinNotes || '',
+    recommendations: r.recommendations || '',
+  }
+}
 
 const ColorPaletteSection = ({ onChatWithJeeves }) => {
   // Reads stay in sync with whatever SkinPhotoSection / other devices write, via useSyncedJson.
   const [skinPhotos] = useSyncedJson(SKIN_PHOTOS_KEY, [])
   const photoCount = Array.isArray(skinPhotos) ? skinPhotos.length : 0
   const [analyzing, setAnalyzing] = useState(false)
+  const [error, setError] = useState(null)
   const [palette, setPalette] = useSyncedJson(COLOR_PALETTE_CACHE_KEY, null)
+  const progress = useAnalysisProgress(PALETTE_STAGES)
+  const { start: startProgress, finish: finishProgress } = progress
 
-  // Kick off the (fake) analysis when we have 2+ photos and no cached palette.
-  useEffect(() => {
-    if (photoCount >= 2 && !palette && !analyzing) {
-      setAnalyzing(true)
-      const t = setTimeout(() => {
-        const result = FAKE_PALETTES[photoCount % FAKE_PALETTES.length]
-        setPalette(result)
-        setAnalyzing(false)
-      }, 1800)
-      return () => clearTimeout(t)
+  // Ref guard so calling setAnalyzing(true) never re-triggers the effect (the old hang). The effect
+  // depends only on photoCount/palette; a ref tracks whether a run is already in flight or done.
+  const runRef = useRef(false)
+
+  const analyze = useCallback(async () => {
+    if (runRef.current) return
+    runRef.current = true
+    setError(null)
+    setAnalyzing(true)
+    startProgress()
+    try {
+      const result = await runStyleAnalysis('skin', skinPhotos)
+      const cache = toPaletteCache(result)
+      if (!cache || cache.flatter.length === 0) throw new Error('Analysis came back empty. Try clearer, well-lit photos.')
+      finishProgress()
+      setPalette(cache)
+    } catch (e) {
+      const msg = /Failed to fetch|NetworkError|aborted|AbortError/i.test(e.message || '')
+        ? "Couldn't reach the analyzer. Check your connection and try again."
+        : (e.message || "Couldn't analyze your photos.")
+      setError(msg)
+    } finally {
+      setAnalyzing(false)
+      runRef.current = false
     }
-  }, [photoCount, palette, analyzing, setPalette])
+  }, [skinPhotos, setPalette, startProgress, finishProgress])
+
+  // Auto-run when we have 2+ photos and no cached palette and no error sitting. The ref guard
+  // (not state) makes this safe to re-evaluate — it never cancels its own in-flight work.
+  useEffect(() => {
+    if (photoCount >= 2 && !palette && !analyzing && !error && !runRef.current) {
+      analyze()
+    }
+  }, [photoCount, palette, analyzing, error, analyze])
+
+  const retry = () => { setError(null); analyze() }
 
   return (
     <div>
@@ -1464,19 +1634,9 @@ const ColorPaletteSection = ({ onChatWithJeeves }) => {
           </div>
         </div>
       ) : analyzing ? (
-        <div style={{
-          padding: '24px 18px', borderRadius: '10px', background: COLORS.creamDeep,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px',
-        }}>
-          <div style={{
-            width: '32px', height: '32px', border: `3px solid ${COLORS.greenLine}`,
-            borderTopColor: COLORS.green, borderRadius: '50%',
-            animation: 'spin 0.9s linear infinite',
-          }} />
-          <div style={{ fontFamily: FONTS.sub, fontSize: '12px', color: COLORS.textMuted, fontStyle: 'italic' }}>
-            Analyzing your skin tones…
-          </div>
-        </div>
+        <AnalysisProgress pct={progress.pct} label={progress.label} title="Analyzing your skin tones…" />
+      ) : error ? (
+        <AnalysisError message={error} onRetry={retry} />
       ) : palette ? (
         <div style={{
           padding: '16px', borderRadius: '10px', background: COLORS.creamDeep,
@@ -1513,6 +1673,148 @@ const ColorPaletteSection = ({ onChatWithJeeves }) => {
             Chat with Jeeves about this
           </button>
         </div>
+      ) : null}
+    </div>
+  )
+}
+
+// Renders a findings card: a list of label/text rows inside the cream card. Used by both the
+// skin-tone analysis (notes + recommendations) and body analysis (build/proportions/findings/recs).
+const FindingsCard = ({ rows }) => (
+  <div style={{
+    padding: '16px', borderRadius: '10px', background: COLORS.creamDeep,
+    boxShadow: '0 2px 6px rgba(19, 37, 27, 0.08)', display: 'flex', flexDirection: 'column', gap: '14px',
+  }}>
+    {rows.filter((r) => r.text).map((r) => (
+      <div key={r.label}>
+        <div style={{
+          fontFamily: FONTS.sub, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.16em',
+          fontWeight: 600, color: COLORS.textMuted, marginBottom: '5px',
+        }}>{r.label}</div>
+        <div style={{ fontFamily: FONTS.sub, fontSize: '13px', color: COLORS.text, lineHeight: 1.5, fontWeight: r.strong ? 600 : 400 }}>
+          {r.text}
+        </div>
+      </div>
+    ))}
+  </div>
+)
+
+// Skin-tone findings: reads the skinNotes + recommendations the palette analysis already cached into
+// garmint_color_palette_v1 (task 4 stores them there). No separate analysis call — it's a view of the
+// same result, shown below the skin-tone photos so the user sees what was found + what it means.
+const SkinAnalysisSection = () => {
+  const [skinPhotos] = useSyncedJson(SKIN_PHOTOS_KEY, [])
+  const [palette] = useSyncedJson(COLOR_PALETTE_CACHE_KEY, null)
+  const photoCount = Array.isArray(skinPhotos) ? skinPhotos.length : 0
+  const hasFindings = palette && (palette.skinNotes || palette.recommendations)
+
+  return (
+    <div>
+      <SectionTitle>Skin tone analysis</SectionTitle>
+      {photoCount < 2 ? (
+        <div style={{ padding: '18px', borderRadius: '10px', background: COLORS.creamDeep, textAlign: 'center' }}>
+          <div style={{ fontFamily: FONTS.sub, fontSize: '12px', color: COLORS.textFaint, fontStyle: 'italic' }}>
+            Add 2+ natural-light photos above and your skin-tone read will appear here.
+          </div>
+        </div>
+      ) : !hasFindings ? (
+        <div style={{ padding: '18px', borderRadius: '10px', background: COLORS.creamDeep, textAlign: 'center' }}>
+          <div style={{ fontFamily: FONTS.sub, fontSize: '12px', color: COLORS.textFaint, fontStyle: 'italic' }}>
+            Your color palette is being analyzed above — findings will show here once it's ready.
+          </div>
+        </div>
+      ) : (
+        <FindingsCard rows={[
+          { label: 'What the photos show', text: palette.skinNotes },
+          { label: 'How this changes things going forward', text: palette.recommendations },
+        ]} />
+      )}
+    </div>
+  )
+}
+
+const BODY_STAGES = [
+  'Reading your photos…',
+  'Reading your build…',
+  'Assessing proportions…',
+  'Writing fit guidance…',
+]
+
+// Body findings: runs analyze-style type 'body' against the user's body photos and caches the result
+// under garmint_body_analysis_v1. Same progress/spinner/timeout/retry treatment as the palette.
+const BodyAnalysisSection = () => {
+  const [bodyPhotos] = useSyncedJson(BODY_PHOTOS_KEY, {})
+  const photoUrls = useMemo(() => {
+    const obj = (bodyPhotos && typeof bodyPhotos === 'object' && !Array.isArray(bodyPhotos)) ? bodyPhotos : {}
+    return BODY_PHOTO_TYPES.map((t) => obj[t]).filter(Boolean)
+  }, [bodyPhotos])
+  const photoCount = photoUrls.length
+
+  const [analysis, setAnalysis] = useSyncedJson(BODY_ANALYSIS_KEY, null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [error, setError] = useState(null)
+  const progress = useAnalysisProgress(BODY_STAGES)
+  const { start: startProgress, finish: finishProgress } = progress
+  const runRef = useRef(false)
+
+  const analyze = useCallback(async () => {
+    if (runRef.current) return
+    runRef.current = true
+    setError(null)
+    setAnalyzing(true)
+    startProgress()
+    try {
+      const result = await runStyleAnalysis('body', photoUrls)
+      if (!result || (!result.findings && !result.recommendations)) {
+        throw new Error('Analysis came back empty. Try clearer, full-length photos.')
+      }
+      finishProgress()
+      setAnalysis({
+        build: result.build || '',
+        proportions: result.proportions || '',
+        findings: result.findings || '',
+        recommendations: result.recommendations || '',
+      })
+    } catch (e) {
+      const msg = /Failed to fetch|NetworkError|aborted|AbortError/i.test(e.message || '')
+        ? "Couldn't reach the analyzer. Check your connection and try again."
+        : (e.message || "Couldn't analyze your photos.")
+      setError(msg)
+    } finally {
+      setAnalyzing(false)
+      runRef.current = false
+    }
+  }, [photoUrls, setAnalysis, startProgress, finishProgress])
+
+  // Auto-run once when body photos exist and nothing is cached. Ref guard keeps it from hanging.
+  useEffect(() => {
+    if (photoCount >= 1 && !analysis && !analyzing && !error && !runRef.current) {
+      analyze()
+    }
+  }, [photoCount, analysis, analyzing, error, analyze])
+
+  const retry = () => { setError(null); analyze() }
+
+  return (
+    <div>
+      <SectionTitle>Body analysis</SectionTitle>
+      {photoCount < 1 ? (
+        <div style={{ padding: '18px', borderRadius: '10px', background: COLORS.creamDeep, textAlign: 'center' }}>
+          <div style={{ fontFamily: FONTS.sub, fontSize: '12px', color: COLORS.textFaint, fontStyle: 'italic' }}>
+            Add a body photo above and you'll get tailored fit guidance here.
+          </div>
+        </div>
+      ) : analyzing ? (
+        <AnalysisProgress pct={progress.pct} label={progress.label} title="Analyzing your build…" />
+      ) : error ? (
+        <AnalysisError message={error} onRetry={retry} />
+      ) : analysis ? (
+        <FindingsCard rows={[
+          { label: 'Build', text: analysis.build, strong: true },
+          { label: 'Proportions', text: analysis.proportions, strong: true },
+          { label: 'What this means for fit', text: analysis.findings },
+          { label: 'How this affects things going forward', text: analysis.recommendations },
+        ]} />
       ) : null}
     </div>
   )
@@ -2200,12 +2502,18 @@ export const ProfilePage = ({ user, onSignOut, profilePhoto, onProfilePhotoChang
       >Body photos</SectionTitleWithAdd>
       <BodyPhotoSection ref={bodyPhotoRef} />
 
+      {/* Body analysis findings — runs analyze-style 'body' against the body photos above */}
+      <BodyAnalysisSection />
+
       {/* Skin tone photos — array, + button in title opens Lookbook-style upload/paste menu */}
       <SectionTitleWithAdd
         subtitle="Photos in natural light for color palette analysis"
         onAdd={() => skinSectionRef.current?.openMenu()}
       >Skin tone photos</SectionTitleWithAdd>
       <SkinPhotoSection ref={skinSectionRef} />
+
+      {/* Skin tone analysis findings — renders skinNotes + recommendations from the palette result */}
+      <SkinAnalysisSection />
 
       <ColorPaletteSection onChatWithJeeves={() => {
         if (onSetChatPrefill) onSetChatPrefill("I just got my color palette analysis. Help me apply it — what specific pieces and brands should I look at given my season and undertone?")

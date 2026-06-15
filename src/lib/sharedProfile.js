@@ -11,6 +11,7 @@
 // trigger A's snapshot, and Firestore would burn writes forever.
 import { db } from './firebase'
 import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore'
+import { loadJson, saveJson } from './storage'
 
 const SHARED_KEY = 'homebase_shared_profile_v1'
 const MINT_PROFILE_KEY = 'garmint_profile_v1'
@@ -49,18 +50,29 @@ export const bridgeSharedProfile = (uid) => {
   let lastMintWritten = null
 
   // shared → mint: when gym or another homebase app updates the shared identity, propagate into
-  // mint's profile doc so useSyncedJson('garmint_profile_v1') re-renders the existing UI.
+  // mint's profile so the existing UI re-renders.
+  //
+  // IMPORTANT: we read mint's profile from localStorage (the live source of truth that reflects
+  // in-flight local edits still sitting in saveSyncedJson's debounce queue), NOT from a fresh
+  // getDoc(mintRef) which can be STALE relative to those pending edits. Reading the stale Firestore
+  // copy and writing it back used to revert a batch of just-typed measurements — the reported
+  // "I updated a lot of info and it didn't save" bug. We also merge ONLY the shared subset
+  // (photo/height/weight/age) so we can never drop unrelated mint fields, and we update localStorage
+  // + dispatch the in-app sync event ourselves so useSyncedJson picks it up without a Firestore echo.
   const unsubShared = onSnapshot(sharedRef, async (snap) => {
     if (!snap.exists()) return
     const shared = snap.data()?.value
     if (!shared || typeof shared !== 'object') return
     if (eq(shared, lastSharedWritten)) return
     try {
-      const mintSnap = await getDoc(mintRef)
-      const mintProfile = mintSnap.exists() ? (mintSnap.data()?.value || {}) : {}
+      const local = loadJson(MINT_PROFILE_KEY)
+      const mintProfile = (local && typeof local === 'object' && !Array.isArray(local)) ? local : {}
       const merged = applySharedToMint(mintProfile, shared)
       if (eq(merged, mintProfile)) return
       lastMintWritten = merged
+      // Reflect locally + in the UI immediately.
+      saveJson(MINT_PROFILE_KEY, merged)
+      window.dispatchEvent(new CustomEvent(`mint-sync:${MINT_PROFILE_KEY}`, { detail: merged }))
       await setDoc(mintRef, { value: merged, updatedAt: Date.now() }, { merge: true })
     } catch (e) { console.warn('shared→mint sync failed:', e) }
   }, (err) => console.warn('shared profile listen error:', err))

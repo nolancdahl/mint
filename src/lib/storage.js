@@ -14,6 +14,15 @@ export const saveJson = (key, value) => {
   }
 }
 
+// Per-key last-write timestamp (ms epoch) for last-write-wins sync resolution.
+export const loadTs = (key) => {
+  const v = Number(localStorage.getItem(`${key}:ts`))
+  return Number.isFinite(v) ? v : 0
+}
+export const saveTs = (key, ts) => {
+  try { localStorage.setItem(`${key}:ts`, String(ts)) } catch (e) { /* ignore */ }
+}
+
 // Convert a data URL to a Blob
 export const dataUrlToBlob = (dataUrl) => {
   const [header, base64] = dataUrl.split(',')

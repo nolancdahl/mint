@@ -10,6 +10,10 @@ button:focus, [role="button"]:focus, a:focus { outline: none; }
 button { font-family: inherit; }
 input, textarea, select { font-family: inherit; }
 
+/* Prevent the whole page from rubber-band overscrolling (the "lift + gap" when
+   dragging past the bottom). The app's own <main> scrolls instead. */
+html, body { overscroll-behavior: none; height: 100%; margin: 0; background: #F4EEE0; }
+
 .tile {
   background: #EAE1CC;
   border-radius: 6px;

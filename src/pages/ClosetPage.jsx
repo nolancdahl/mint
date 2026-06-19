@@ -137,7 +137,7 @@ const FilterDropdown = ({ label, options, selected, onChange, icon: IconComp, op
           height: '36px',
           padding: showPill ? '0 10px' : '0',
           minWidth: '36px',
-          maxWidth: showPill ? '240px' : '36px',
+          maxWidth: '240px',
           borderRadius: '999px',
           border: `1.5px solid ${isActive ? COLORS.green : (open ? COLORS.green : COLORS.greenLine)}`,
           background: isActive ? COLORS.green : COLORS.creamDeep,
@@ -145,41 +145,31 @@ const FilterDropdown = ({ label, options, selected, onChange, icon: IconComp, op
           fontFamily: FONTS.sub, fontSize: '11px', fontWeight: 600,
           letterSpacing: '0.08em', textTransform: 'uppercase',
           cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
-          justifyContent: 'center', gap: showPill ? '5px' : '0',
-          transition: `max-width ${ease}, padding ${ease}, gap ${ease}, background 0.22s, border-color 0.22s, color 0.22s`,
+          justifyContent: 'center',
+          transition: `padding ${ease}, background ${ease}, border-color ${ease}, color ${ease}`,
           overflow: 'hidden', whiteSpace: 'nowrap',
         }}
       >
         {IconComp && <IconComp size={13} strokeWidth={1.8} style={{ flexShrink: 0 }} />}
-        <span style={{
-          maxWidth: showPill ? '120px' : '0',
-          opacity: showPill ? 1 : 0,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          transition: `max-width ${ease}, opacity 0.18s ease`,
-          display: 'inline-block',
-        }}>
-          {displayLabel}
+        {/* One width-reveal wrapper (grid fr): animates the pill's real content width
+            with no max-width dead-zone/rebound, and keeps the icon centered when
+            collapsed (it's then the only visible child). */}
+        <span style={{ display: 'grid', gridTemplateColumns: showPill ? '1fr' : '0fr', minWidth: 0, transition: `grid-template-columns ${ease}` }}>
+          <span style={{
+            overflow: 'hidden', display: 'inline-flex', alignItems: 'center', gap: '5px',
+            whiteSpace: 'nowrap', opacity: showPill ? 1 : 0, transition: `opacity ${ease}`,
+          }}>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px', paddingLeft: '6px' }}>{displayLabel}</span>
+            {isActive ? (
+              <span
+                onClick={(e) => { e.stopPropagation(); onChange([]); setExpanded(false); setOpen(false) }}
+                style={{ width: '14px', height: '14px', borderRadius: '50%', background: 'rgba(244,238,224,0.35)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}
+              ><XIcon size={9} strokeWidth={2.5} /></span>
+            ) : (
+              <ChevronDown size={12} strokeWidth={2} style={{ flexShrink: 0 }} />
+            )}
+          </span>
         </span>
-        <span
-          onClick={isActive ? (e) => { e.stopPropagation(); onChange([]); setExpanded(false); setOpen(false) } : undefined}
-          style={{
-            width: '14px', height: '14px', borderRadius: '50%',
-            background: 'rgba(244,238,224,0.35)',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            cursor: isActive ? 'pointer' : 'default', flexShrink: 0,
-            maxWidth: isActive ? '14px' : '0',
-            opacity: isActive ? 1 : 0,
-            overflow: 'hidden',
-            transition: `max-width ${ease}, opacity 0.18s ease`,
-          }}
-        ><XIcon size={9} strokeWidth={2.5} /></span>
-        <span style={{
-          display: 'inline-flex', alignItems: 'center',
-          maxWidth: (showPill && !isActive) ? '14px' : '0',
-          opacity: (showPill && !isActive) ? 1 : 0,
-          overflow: 'hidden',
-          transition: `max-width ${ease}, opacity 0.18s ease`,
-        }}><ChevronDown size={12} strokeWidth={2} /></span>
       </button>
       {open && (
         <>

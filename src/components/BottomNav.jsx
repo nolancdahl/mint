@@ -10,8 +10,8 @@ export const BottomNav = ({ pages, current, onChange }) => (
       flexShrink: 0,
       background: COLORS.creamLight,
       borderTop: `1px solid ${COLORS.greenLine}`,
-      padding: '12px 4px 14px',
-      paddingBottom: 'calc(14px + env(safe-area-inset-bottom, 0px))',
+      padding: '6px 4px 8px',
+      paddingBottom: 'calc(8px + env(safe-area-inset-bottom, 0px))',
       zIndex: 100,
       backdropFilter: 'blur(8px)',
     }}
@@ -33,7 +33,7 @@ export const BottomNav = ({ pages, current, onChange }) => (
               background: 'none',
               border: 'none',
               cursor: 'pointer',
-              padding: '8px 2px',
+              padding: '4px 2px',
               color: isActive ? COLORS.green : COLORS.textFaint,
               transition: 'color 0.18s',
             }}

@@ -488,7 +488,7 @@ export const CalendarPage = ({ onPickOutfit, onBack }) => {
 
 export const StatsPage = ({ items, wishlist }) => (
   <div>
-    <PageTitle title="Insights" subtitle="Patterns in what I wear" />
+    <SectionTitle>Insights</SectionTitle>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
       <StatCard label="Total items" value={items.length || '—'} />
       <StatCard label="Wishlist" value={wishlist.length || '—'} />
@@ -709,7 +709,7 @@ export const ExpertPage = ({ prefill, onPrefillConsumed }) => {
 
   return (
     <div>
-      <PageTitle title="Ask Jeeves" subtitle="My style advisor" />
+      <SectionTitle>Ask Jeeves</SectionTitle>
 
       {/* Quick Actions */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
@@ -1620,60 +1620,100 @@ const ColorPaletteSection = ({ onChatWithJeeves }) => {
     }
   }, [photoCount, palette, analyzing, error, analyze])
 
-  const retry = () => { setError(null); analyze() }
+  // (Skin photos still feed the Skin-tone findings card below via the cached analysis;
+  //  the Color palette card itself now shows the highlights from the personal Palette Report.)
+
+  const Swatch = ({ name, hex, big }) => (
+    <div title={`${name} · ${hex}`} style={{ flex: big ? 1 : '0 0 auto', minWidth: 0 }}>
+      <div style={{
+        width: big ? '100%' : '34px', aspectRatio: '1 / 1.15', borderRadius: '6px', background: hex,
+        boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.10)',
+      }} />
+      {big && (
+        <div style={{ fontFamily: FONTS.sub, fontSize: '8px', color: COLORS.textMuted, marginTop: '3px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
+      )}
+    </div>
+  )
+  const microLabel = { fontFamily: FONTS.sub, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.16em', fontWeight: 600, color: COLORS.textMuted, marginBottom: '6px' }
 
   return (
     <div>
       <SectionTitle>Color palette</SectionTitle>
-      {photoCount < 2 ? (
-        <div style={{
-          padding: '18px', borderRadius: '10px', background: COLORS.creamDeep, textAlign: 'center',
-        }}>
-          <div style={{ fontFamily: FONTS.sub, fontSize: '12px', color: COLORS.textFaint, fontStyle: 'italic' }}>
-            Upload 2+ skin tone photos above to unlock your personalized color palette.
+      <div style={{
+        padding: '16px', borderRadius: '10px', background: COLORS.creamDeep,
+        boxShadow: '0 2px 6px rgba(19, 37, 27, 0.08)',
+      }}>
+        <div className="title-bold" style={{ fontSize: '18px', color: COLORS.text, lineHeight: 1.1 }}>Soft Autumn</div>
+        <div style={{ fontFamily: FONTS.sub, fontSize: '11px', color: COLORS.textMuted, marginTop: '2px', marginBottom: '14px' }}>
+          Warm · Muted · Light–Medium
+        </div>
+
+        {/* Headline finding */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', borderRadius: '8px', background: COLORS.cream, marginBottom: '16px' }}>
+          <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+            <div title="Black #000000" style={{ width: '22px', height: '30px', borderRadius: '4px', background: '#000000', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.12)' }} />
+            <div title="Soft navy #2C3A4F" style={{ width: '22px', height: '30px', borderRadius: '4px', background: '#2C3A4F', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.12)' }} />
+          </div>
+          <div style={{ fontFamily: FONTS.sub, fontSize: '12px', color: COLORS.text, lineHeight: 1.4 }}>
+            <strong style={{ fontWeight: 700 }}>Soft navy is your black.</strong> Swap black tees for soft navy — it grounds the face and calms the flush.
           </div>
         </div>
-      ) : analyzing ? (
-        <AnalysisProgress pct={progress.pct} label={progress.label} title="Analyzing your skin tones…" />
-      ) : error ? (
-        <AnalysisError message={error} onRetry={retry} />
-      ) : palette ? (
-        <div style={{
-          padding: '16px', borderRadius: '10px', background: COLORS.creamDeep,
-          boxShadow: '0 2px 6px rgba(19, 37, 27, 0.08)',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '12px' }}>
-            <div>
-              <div className="title-bold" style={{ fontSize: '18px', color: COLORS.text, lineHeight: 1.1 }}>{palette.season}</div>
-              <div style={{ fontFamily: FONTS.sub, fontSize: '11px', color: COLORS.textMuted, marginTop: '2px' }}>
-                Undertone · {palette.undertone}
-              </div>
-            </div>
-          </div>
-          <div style={{ fontFamily: FONTS.sub, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.16em', fontWeight: 600, color: COLORS.textMuted, marginBottom: '6px' }}>Flattering</div>
-          <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
-            {palette.flatter.map((c) => (
-              <div key={c} title={c} style={{ flex: 1, aspectRatio: '1/1.2', borderRadius: '6px', background: c, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)' }} />
-            ))}
-          </div>
-          <div style={{ fontFamily: FONTS.sub, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.16em', fontWeight: 600, color: COLORS.textMuted, marginBottom: '6px' }}>Avoid</div>
-          <div style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
-            {palette.avoid.map((c) => (
-              <div key={c} title={c} style={{ width: '36px', aspectRatio: '1/1.2', borderRadius: '6px', background: c, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)' }} />
-            ))}
-          </div>
-          <button onClick={onChatWithJeeves} style={{
-            width: '100%', padding: '12px', background: COLORS.green, color: COLORS.cream,
-            border: 'none', borderRadius: '8px',
-            fontFamily: FONTS.sub, fontSize: '11.5px', fontWeight: 600,
-            letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-          }}>
-            <SparklesIcon size={14} strokeWidth={1.8} />
-            Chat with Jeeves about this
-          </button>
+
+        {/* The deck — 11 core colors */}
+        <div style={microLabel}>The deck · core palette</div>
+        <div style={{ display: 'flex', gap: '5px', marginBottom: '16px' }}>
+          {[
+            ['Cream / Ecru', '#F2EBDD'], ['Oatmeal', '#D9CDB8'], ['Camel', '#C19A66'], ['Tobacco', '#8A5A38'],
+            ['Brown Leather', '#6B4A2E'], ['Warm Charcoal', '#3A3531'], ['Soft Navy', '#2C3A4F'], ['Petrol', '#1F5563'],
+            ['Olive', '#5C5A37'], ['Forest', '#2F4A38'], ['Burgundy', '#6E2F3A'],
+          ].map(([name, hex]) => <Swatch key={hex} name={name} hex={hex} big />)}
         </div>
-      ) : null}
+
+        {/* Near the face: lead with */}
+        <div style={microLabel}>Lead with (near the face)</div>
+        <div style={{ display: 'flex', gap: '5px', marginBottom: '14px' }}>
+          {[
+            ['Soft navy', '#2C3A4F'], ['Forest', '#2F4A38'], ['Olive', '#5C5A37'],
+            ['Petrol', '#1F5563'], ['Cream', '#F2EBDD'], ['Camel', '#C19A66'],
+          ].map(([name, hex]) => <Swatch key={hex} name={name} hex={hex} big />)}
+        </div>
+
+        {/* Keep off the face */}
+        <div style={microLabel}>Keep off the face</div>
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
+          {[
+            ['Black', '#000000'], ['Stark white', '#FFFFFF'], ['Electric blue', '#1E5FFF'],
+            ['True red', '#E0231F'], ['Baby blue', '#AED4F0'], ['Icy lavender', '#D9CFEA'],
+          ].map(([name, hex]) => <Swatch key={hex} name={name} hex={hex} />)}
+        </div>
+
+        <div style={{ fontFamily: FONTS.sub, fontSize: '11.5px', color: COLORS.textMuted, lineHeight: 1.5, marginBottom: '14px' }}>
+          Secret weapon: <strong style={{ color: COLORS.text, fontWeight: 600 }}>green cancels red.</strong> Worn at the collar, forest and olive neutralize the flush. Brown leather over black, always.
+        </div>
+
+        {/* Full report link */}
+        <a href="/palette-report.html" target="_blank" rel="noopener noreferrer" style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+          width: '100%', boxSizing: 'border-box', padding: '11px', marginBottom: '8px',
+          background: 'transparent', color: COLORS.green, border: `1.5px solid ${COLORS.green}`, borderRadius: '8px',
+          fontFamily: FONTS.sub, fontSize: '11.5px', fontWeight: 600, letterSpacing: '0.12em',
+          textTransform: 'uppercase', textDecoration: 'none', cursor: 'pointer',
+        }}>
+          <LinkIcon size={13} strokeWidth={2} />
+          View the full report
+        </a>
+
+        <button onClick={onChatWithJeeves} style={{
+          width: '100%', padding: '12px', background: COLORS.green, color: COLORS.cream,
+          border: 'none', borderRadius: '8px',
+          fontFamily: FONTS.sub, fontSize: '11.5px', fontWeight: 600,
+          letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+        }}>
+          <SparklesIcon size={14} strokeWidth={1.8} />
+          Chat with Jeeves about this
+        </button>
+      </div>
     </div>
   )
 }
@@ -2215,7 +2255,7 @@ const SaleTrackingSection = ({ onAddRef }) => {
   )
 }
 
-export const ProfilePage = ({ user, onSignOut, profilePhoto, onProfilePhotoChange, onNavigate, onSetChatPrefill }) => {
+export const ProfilePage = ({ user, onSignOut, profilePhoto, onProfilePhotoChange, onNavigate, onSetChatPrefill, closetItems = [], wishlistItems = [], chatPrefill, onPrefillConsumed }) => {
   // Profile is synced across devices via Firestore. Use the raw saved value but pass it through
   // the same default-merging that `loadProfile` does so newly-added default measurements appear
   // in the UI even if the stored doc is older.
@@ -2517,7 +2557,7 @@ export const ProfilePage = ({ user, onSignOut, profilePhoto, onProfilePhotoChang
 
       <ColorPaletteSection onChatWithJeeves={() => {
         if (onSetChatPrefill) onSetChatPrefill("I just got my color palette analysis. Help me apply it — what specific pieces and brands should I look at given my season and undertone?")
-        if (onNavigate) onNavigate('expert')
+        if (typeof document !== 'undefined') document.getElementById('profile-jeeves-section')?.scrollIntoView({ behavior: 'smooth' })
       }} />
 
       {/* Brand Size Fits — circular + opens closet-style modal; results show as collapsible brand groups */}
@@ -2532,6 +2572,16 @@ export const ProfilePage = ({ user, onSignOut, profilePhoto, onProfilePhotoChang
         onAdd={() => saleTrackingRef.current?.startAdd()}
       >Sale tracking</SectionTitleWithAdd>
       <SaleTrackingSection onAddRef={saleTrackingRef} />
+
+      {/* Insights — folded in from its own tab into the profile page. */}
+      <div style={{ marginTop: '12px' }}>
+        <StatsPage items={closetItems} wishlist={wishlistItems} />
+      </div>
+
+      {/* Ask Jeeves — folded in from its own tab into the profile page. */}
+      <div id="profile-jeeves-section" style={{ marginTop: '12px' }}>
+        <ExpertPage prefill={chatPrefill} onPrefillConsumed={onPrefillConsumed} />
+      </div>
 
       {cropPending && (
         <ProfilePhotoCropModal

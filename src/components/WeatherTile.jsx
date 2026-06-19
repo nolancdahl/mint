@@ -108,68 +108,19 @@ const buildDayRecommendation = (hours) => {
   return s
 }
 
-// Horizontal scrolling strip with explicit left/right scroll arrows.
-// The arrows fade out at the start/end of the scroll range so they only show when there's somewhere to go.
+// Horizontal scrolling strip — swipe left/right with a finger (no arrow buttons).
 const HourlyStrip = ({ children }) => {
-  const scrollRef = useRef(null)
-  const [canLeft, setCanLeft] = useState(false)
-  const [canRight, setCanRight] = useState(true)
-
-  const updateArrows = () => {
-    const el = scrollRef.current
-    if (!el) return
-    setCanLeft(el.scrollLeft > 4)
-    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4)
-  }
-
-  useEffect(() => {
-    updateArrows()
-    const el = scrollRef.current
-    if (!el) return
-    el.addEventListener('scroll', updateArrows, { passive: true })
-    window.addEventListener('resize', updateArrows)
-    return () => {
-      el.removeEventListener('scroll', updateArrows)
-      window.removeEventListener('resize', updateArrows)
-    }
-  }, [])
-
-  const scrollBy = (delta) => {
-    const el = scrollRef.current
-    if (!el) return
-    el.scrollBy({ left: delta, behavior: 'smooth' })
-  }
-
-  const arrowBtn = (side) => ({
-    position: 'absolute', top: '50%', transform: 'translateY(-50%)',
-    [side]: '-2px',
-    width: '26px', height: '26px', borderRadius: '50%',
-    background: COLORS.cream, border: `1px solid ${COLORS.greenLine}`,
-    color: COLORS.green, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    cursor: 'pointer', padding: 0, zIndex: 3,
-    boxShadow: '0 2px 6px rgba(19, 37, 27, 0.18)',
-    opacity: 1, transition: 'opacity 0.2s',
-  })
-
   return (
-    <div style={{ position: 'relative', margin: '0 -4px' }}>
-      <div ref={scrollRef} className="hide-scrollbar" style={{
+    <div style={{ margin: '0 -4px' }}>
+      <div className="hide-scrollbar" style={{
         display: 'flex', gap: '4px', overflowX: 'auto',
         WebkitOverflowScrolling: 'touch', paddingBottom: '2px',
-        paddingLeft: '28px', paddingRight: '28px',
+        // Left edge sits level with the section labels + the Week-ahead grid
+        // (counters the wrapper's -4px margin).
+        paddingLeft: '4px', paddingRight: '4px',
       }}>
         {children}
       </div>
-      {canLeft && (
-        <button onClick={() => scrollBy(-160)} aria-label="Scroll left" style={arrowBtn('left')}>
-          <ChevronLeft size={14} strokeWidth={2} />
-        </button>
-      )}
-      {canRight && (
-        <button onClick={() => scrollBy(160)} aria-label="Scroll right" style={arrowBtn('right')}>
-          <ChevronRight size={14} strokeWidth={2} />
-        </button>
-      )}
     </div>
   )
 }
@@ -240,7 +191,8 @@ export const WeatherTile = () => {
 
   return (
     <div className="tile" style={{ padding: '18px 20px' }}>
-      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+      {/* Top row: weather icon + temp + Seattle / H·L / rain. */}
+      <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           <div style={{ fontSize: '40px', lineHeight: 1 }}>{currentInfo.emoji}</div>
           <div>
@@ -252,7 +204,7 @@ export const WeatherTile = () => {
             </div>
           </div>
         </div>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', gap: '8px', fontFamily: FONTS.sub, fontSize: '11.5px', color: COLORS.textMuted, flexWrap: 'wrap' }}>
             <span style={{ textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 600 }}>Seattle</span>
             <span style={{ color: COLORS.textFaint }}>·</span>
@@ -260,10 +212,11 @@ export const WeatherTile = () => {
             <span style={{ color: COLORS.textFaint }}>·</span>
             <span>🌧 {todayRain}% today</span>
           </div>
-          <div style={{ fontFamily: FONTS.sub, fontSize: '12.5px', lineHeight: 1.5, color: COLORS.text, marginTop: '8px' }}>
-            {recommendation}
-          </div>
         </div>
+      </div>
+      {/* Full-width clothing summary, underneath the icon + Seattle row. */}
+      <div style={{ fontFamily: FONTS.sub, fontSize: '12.5px', lineHeight: 1.5, color: COLORS.text, marginTop: '12px', width: '100%' }}>
+        {recommendation}
       </div>
 
       <div style={{ height: '1px', background: COLORS.greenLineSoft, margin: '14px 0 12px' }} />

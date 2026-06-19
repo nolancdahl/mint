@@ -7,6 +7,7 @@ import { useSyncedJson } from './lib/useSyncedJson'
 import { useAuth, LoginScreen, handleSignOut } from './components/AuthGate'
 import { Header } from './components/Header'
 import { BottomNav } from './components/BottomNav'
+import { MusicSelector } from './components/MusicSelector'
 import { FloatingChatButton } from './components/FloatingChatButton'
 import { ChatPopup } from './components/ChatPopup'
 import { ItemDetailModal } from './components/ItemDetailModal'
@@ -86,6 +87,7 @@ const UpdateBanner = () => {
 function AppShell() {
   const user = useAuth()
   const [currentPage, setCurrentPage] = useState('home')
+
   const [chatOpen, setChatOpen] = useState(false)
   const [chatMounted, setChatMounted] = useState(false)
   const [closetItems, setClosetItems] = useState(() => loadJson(CLOSET_KEY))
@@ -207,8 +209,6 @@ function AppShell() {
     { id: 'closet', label: 'Closet', icon: ShirtIcon },
     { id: 'shopping', label: 'List', icon: ShoppingBagIcon },
     { id: 'inspiration', label: 'Lookbook', icon: ImageIcon },
-    { id: 'stats', label: 'Insights', icon: BarChartIcon },
-    { id: 'expert', label: 'Jeeves', icon: SparklesIcon },
     { id: 'profile', label: 'Profile', icon: UserIcon },
   ]
 
@@ -261,8 +261,6 @@ function AppShell() {
             onNavigate={setCurrentPage}
           />
         )
-      case 'stats':
-        return <StatsPage items={closetItems} wishlist={wishlistItems} />
       case 'shopping':
         return (
           <ShoppingPage
@@ -287,10 +285,8 @@ function AppShell() {
         )
       case 'calendar':
         return <CalendarPage onPickOutfit={() => openCreateOutfit()} onBack={() => setCurrentPage('closet')} />
-      case 'expert':
-        return <ExpertPage prefill={chatPrefill} onPrefillConsumed={() => setChatPrefill('')} />
       case 'profile':
-        return <ProfilePage user={user} onSignOut={handleSignOut} profilePhoto={profilePhoto} onProfilePhotoChange={setProfilePhoto} onNavigate={setCurrentPage} onSetChatPrefill={setChatPrefill} />
+        return <ProfilePage user={user} onSignOut={handleSignOut} profilePhoto={profilePhoto} onProfilePhotoChange={setProfilePhoto} onNavigate={setCurrentPage} onSetChatPrefill={setChatPrefill} closetItems={closetItems} wishlistItems={wishlistItems} chatPrefill={chatPrefill} onPrefillConsumed={() => setChatPrefill('')} />
       default:
         return <HomePage closetCount={closetItems.length} wishlistCount={wishlistItems.length} onAddPiece={openCloset} onNavigate={setCurrentPage} />
     }
@@ -305,14 +301,19 @@ function AppShell() {
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
+      // Cream sits behind the banner's transparent arch (so the arch reads as cream
+      // at rest, and content shows over it as you scroll up).
+      background: COLORS.cream,
     }}>
       <UpdateBanner />
       <Header
         onLogoClick={() => { setCurrentPage('home'); closeAll() }}
       />
+      {/* Top-right music picker (menu of tracks). */}
+      <MusicSelector />
       <main
         key={currentPage}
-        className="page-enter"
+        className="page-enter hide-scrollbar"
         style={{
           flex: 1,
           minHeight: 0,
@@ -321,9 +322,15 @@ function AppShell() {
           // Stop the rubber-band overscroll that lifts the page and shows a gap
           // when you keep dragging past the bottom.
           overscrollBehavior: 'none',
-          padding: '18px 18px 32px',
+          // Pulled up to overlap the banner's arch (66px), behind it (z 1 < header 20).
+          // The extra top padding starts the content just below the arch, so scrolling
+          // up carries it through the arch before the green clips it.
+          position: 'relative',
+          zIndex: 1,
+          padding: '84px 18px 32px',
           maxWidth: '1100px',
           margin: '0 auto',
+          marginTop: '-66px',
           width: '100%',
         }}
       >

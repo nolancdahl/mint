@@ -156,7 +156,7 @@ const DraggableGrid = ({ items, cols = 3, onSelect, onReorder, onUpdate }) => {
     const rect = gridRef.current.getBoundingClientRect()
     const gap = 2
     const w = (rect.width - gap * (cols - 1)) / cols
-    const h = w
+    const h = w * (5 / 4) // cells are 4:5 portrait
     return { w, h, cols, gap, left: rect.left, top: rect.top }
   }, [cols])
 
@@ -343,7 +343,7 @@ const DraggableGrid = ({ items, cols = 3, onSelect, onReorder, onUpdate }) => {
                 if (mouseStart.current && !dragging.current) onSelect(item)
               }}
               style={{
-                aspectRatio: '1',
+                aspectRatio: '4 / 5',
                 cursor: dragIdx !== null ? 'grabbing' : 'pointer',
                 overflow: 'hidden',
                 position: 'relative',
@@ -357,8 +357,9 @@ const DraggableGrid = ({ items, cols = 3, onSelect, onReorder, onUpdate }) => {
                       const toCol = displayIdx % cols
                       const toRow = Math.floor(displayIdx / cols)
                       const cellW = gridRef.current ? (gridRef.current.offsetWidth - 2 * (cols - 1)) / cols + 2 : 0
+                      const rowH = (cellW - 2) * (5 / 4) + 2 // cells are 4:5 portrait
                       const dx = (toCol - fromCol) * cellW
-                      const dy = (toRow - fromRow) * cellW
+                      const dy = (toRow - fromRow) * rowH
                       return `translate(${dx}px, ${dy}px)`
                     })()
                   : 'none',
@@ -399,7 +400,7 @@ const DraggableGrid = ({ items, cols = 3, onSelect, onReorder, onUpdate }) => {
           left: dragPos.x,
           top: dragPos.y,
           width: gridRef.current ? (gridRef.current.offsetWidth - 2 * (cols - 1)) / cols : 100,
-          height: gridRef.current ? (gridRef.current.offsetWidth - 2 * (cols - 1)) / cols : 100,
+          height: gridRef.current ? ((gridRef.current.offsetWidth - 2 * (cols - 1)) / cols) * (5 / 4) : 125,
           zIndex: 9999,
           pointerEvents: 'none',
           borderRadius: '8px',

@@ -1,35 +1,53 @@
-import React from 'react'
+import React, { useId } from 'react'
 import { COLORS } from '../lib/theme'
 
-export const MintLeavesLogo = ({ size = 30 }) => {
+// A pointed mint leaf filled with an up-pointing chevron (herringbone) vein
+// pattern, in the app's cream + green palette. Cream forms the light stripes,
+// the two greens the dark ones, with a soft central vein.
+export const MintLeavesLogo = ({ size = 38 }) => {
+  const VB_W = 60
+  const VB_H = 92
   const w = size
-  const h = Math.round((size * 32) / 36)
+  const h = Math.round((size * VB_H) / VB_W)
+  const id = useId().replace(/[^a-zA-Z0-9_-]/g, '')
 
-  const leafPath =
-    'M 9 1 L 11 3 L 9 4 L 13 5 L 10 8 L 15 10 L 10 12 L 15 15 L 10 17 L 13 20 L 9 21 L 11 24 L 9 26 L 9 27 L 7 24 L 5 21 L 8 20 L 3 17 L 8 15 L 3 12 L 8 10 L 3 8 L 8 5 L 5 4 L 7 3 Z'
+  // Almond leaf outline: pointed at top and bottom, widest in the middle.
+  const leaf =
+    'M30 3 C 15 21, 8 36, 8 47 C 8 59, 18 81, 30 89 C 42 81, 52 59, 52 47 C 52 36, 45 21, 30 3 Z'
+
+  // Stacked up-pointing chevrons (apex on the central vein), alternating between
+  // the two app greens. The cream base shows through as the light stripes.
+  const chevrons = []
+  let i = 0
+  for (let y = 8; y <= 88; y += 10) {
+    chevrons.push(
+      <polyline
+        key={y}
+        points={`6,${y + 10} 30,${y} 54,${y + 10}`}
+        fill="none"
+        stroke={i % 2 === 0 ? COLORS.green : COLORS.greenSoft}
+        strokeWidth="5.5"
+        strokeLinecap="butt"
+      />,
+    )
+    i += 1
+  }
 
   return (
-    <svg width={w} height={h} viewBox="0 0 36 32" xmlns="http://www.w3.org/2000/svg">
-      <g transform="translate(0 2) rotate(-22 11 22)">
-        <path d={leafPath} fill={COLORS.cream} />
-        <line x1="9" y1="2" x2="9" y2="26" stroke={COLORS.green} strokeWidth="0.7" strokeLinecap="round" />
-        <line x1="9" y1="9" x2="12" y2="8" stroke={COLORS.green} strokeWidth="0.4" strokeLinecap="round" />
-        <line x1="9" y1="9" x2="6" y2="8" stroke={COLORS.green} strokeWidth="0.4" strokeLinecap="round" />
-        <line x1="9" y1="14" x2="13" y2="13" stroke={COLORS.green} strokeWidth="0.4" strokeLinecap="round" />
-        <line x1="9" y1="14" x2="5" y2="13" stroke={COLORS.green} strokeWidth="0.4" strokeLinecap="round" />
-        <line x1="9" y1="19" x2="12" y2="18" stroke={COLORS.green} strokeWidth="0.4" strokeLinecap="round" />
-        <line x1="9" y1="19" x2="6" y2="18" stroke={COLORS.green} strokeWidth="0.4" strokeLinecap="round" />
+    <svg width={w} height={h} viewBox={`0 0 ${VB_W} ${VB_H}`} xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <clipPath id={`leafclip-${id}`}>
+          <path d={leaf} />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#leafclip-${id})`}>
+        <rect x="0" y="0" width={VB_W} height={VB_H} fill={COLORS.creamLight} />
+        {chevrons}
+        {/* central vein */}
+        <line x1="30" y1="5" x2="30" y2="87" stroke={COLORS.creamLight} strokeWidth="2.4" strokeLinecap="round" />
       </g>
-      <g transform="translate(13 1) rotate(16 11 22)">
-        <path d={leafPath} fill={COLORS.cream} />
-        <line x1="9" y1="2" x2="9" y2="26" stroke={COLORS.green} strokeWidth="0.7" strokeLinecap="round" />
-        <line x1="9" y1="9" x2="12" y2="8" stroke={COLORS.green} strokeWidth="0.4" strokeLinecap="round" />
-        <line x1="9" y1="9" x2="6" y2="8" stroke={COLORS.green} strokeWidth="0.4" strokeLinecap="round" />
-        <line x1="9" y1="14" x2="13" y2="13" stroke={COLORS.green} strokeWidth="0.4" strokeLinecap="round" />
-        <line x1="9" y1="14" x2="5" y2="13" stroke={COLORS.green} strokeWidth="0.4" strokeLinecap="round" />
-        <line x1="9" y1="19" x2="12" y2="18" stroke={COLORS.green} strokeWidth="0.4" strokeLinecap="round" />
-        <line x1="9" y1="19" x2="6" y2="18" stroke={COLORS.green} strokeWidth="0.4" strokeLinecap="round" />
-      </g>
+      {/* crisp leaf edge */}
+      <path d={leaf} fill="none" stroke={COLORS.green} strokeWidth="2" strokeLinejoin="round" />
     </svg>
   )
 }

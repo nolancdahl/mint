@@ -255,22 +255,9 @@ export const HomePage = ({ closetCount, wishlistCount, onCreateOutfit, onNavigat
 
   return (
     <div>
-      <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-          <h1 className="title-bold" style={{ fontSize: '34px', margin: 0, color: COLORS.green, lineHeight: 1, letterSpacing: '-0.02em' }}>
-            mint
-          </h1>
-          <svg className="mint-leaf" width="28" height="18" viewBox="0 0 40 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M2 12C2 12 10 2 22 2C32 2 38 8 38 12C38 16 32 22 22 22C10 22 2 12 2 12Z" fill={COLORS.green} fillOpacity="0.15" stroke={COLORS.green} strokeWidth="1.6" strokeLinecap="round" />
-            <path d="M2 12C10 12 26 12 38 12" stroke={COLORS.green} strokeWidth="1.4" strokeLinecap="round" />
-            <path d="M12 6C14 8 16 10 18 12" stroke={COLORS.green} strokeWidth="1" strokeLinecap="round" />
-            <path d="M10 18C13 16 16 13 18 12" stroke={COLORS.green} strokeWidth="1" strokeLinecap="round" />
-            <path d="M24 6C23 8 21 10 20 12" stroke={COLORS.green} strokeWidth="1" strokeLinecap="round" />
-            <path d="M26 18C24 16 22 14 20 12" stroke={COLORS.green} strokeWidth="1" strokeLinecap="round" />
-          </svg>
-        </div>
-      </div>
-      <div style={{ textAlign: 'center', marginBottom: '18px', marginTop: '48px' }}>
+      {/* mint leaf + wordmark removed. The greeting below uses the same title font
+          (Bricolage Grotesque / title-bold) the "mint" wordmark used. */}
+      <div style={{ textAlign: 'center', marginBottom: '18px', marginTop: '-10px' }}>
         <h2 className="title-bold" style={{ fontSize: '26px', margin: 0, color: COLORS.text, lineHeight: 1.1 }}>
           {greeting}, Nolán
         </h2>
@@ -281,6 +268,14 @@ export const HomePage = ({ closetCount, wishlistCount, onCreateOutfit, onNavigat
 
       <WeatherTile />
 
+      {/* Outfit suggestions */}
+      <SectionTitle>Today's Outfits</SectionTitle>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', alignItems: 'stretch' }}>
+        <OutfitCard pieces={outfits[0]} label="Option 1" onClick={onCreateOutfit} />
+        <OutfitCard pieces={outfits[1]} label="Option 2" onClick={onCreateOutfit} />
+        <OutfitCard pieces={outfits[2]} label="Option 3" onClick={onCreateOutfit} />
+      </div>
+
       {/* Notification Center */}
       <SectionTitle>Notifications</SectionTitle>
       <div style={{
@@ -290,14 +285,6 @@ export const HomePage = ({ closetCount, wishlistCount, onCreateOutfit, onNavigat
         marginBottom: '8px',
       }}>
         <NotificationItem text="No sale alerts yet. Add brands to your profile and items to your list to get notified." />
-      </div>
-
-      {/* Outfit suggestions */}
-      <SectionTitle>Today's Outfits</SectionTitle>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', alignItems: 'stretch' }}>
-        <OutfitCard pieces={outfits[0]} label="Option 1" onClick={onCreateOutfit} />
-        <OutfitCard pieces={outfits[1]} label="Option 2" onClick={onCreateOutfit} />
-        <OutfitCard pieces={outfits[2]} label="Option 3" onClick={onCreateOutfit} />
       </div>
 
       {/* "Recommended for You" was removed: dependable per-item scraping from arbitrary

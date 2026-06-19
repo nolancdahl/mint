@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Palette Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ground:#211D1A;        /* warm charcoal, in-palette, never pure black */
+    --ground-2:#2A2521;
+    --parchment:#F2EBDD;     /* cream / ecru, his confirmed best neutral */
+    --parchment-2:#E9E0CE;
+    --ink:#2A2521;
+    --ink-soft:#5C544A;
+    --brass:#A8895C;         /* heritage hairline */
+    --forest:#2F4A38;        /* hero: the redness neutralizer */
+    --petrol:#1F5563;        /* data + links */
+    --flush:#C56A5A;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--ground);
+    color:var(--parchment);
+    font-family:"Work Sans",system-ui,sans-serif;
+    font-size:17px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+  .mono{font-family:"IBM Plex Mono",monospace}
+
+  /* ---------- MASTHEAD ---------- */
+  .mast{
+    border-bottom:1px solid rgba(168,137,92,.4);
+    padding:84px 0 56px;
+    position:relative;
+  }
+  .mast .eyebrow{
+    font-family:"IBM Plex Mono",monospace;
+    font-size:12px;letter-spacing:.32em;text-transform:uppercase;
+    color:var(--brass);margin-bottom:28px;
+  }
+  .mast h1{
+    font-family:"Fraunces",serif;
+    font-weight:500;
+    font-size:clamp(52px,9vw,108px);
+    line-height:.94;
+    letter-spacing:-.02em;
+  }
+  .mast h1 em{font-style:italic;color:var(--brass)}
+  .mast .sub{
+    margin-top:26px;max-width:560px;
+    color:var(--parchment-2);font-size:18px;
+  }
+  .mast .meta{
+    margin-top:38px;display:flex;flex-wrap:wrap;gap:28px;
+    font-family:"IBM Plex Mono",monospace;font-size:12.5px;
+    letter-spacing:.05em;color:var(--ink-soft);
+  }
+  .mast .meta b{color:var(--parchment);font-weight:500}
+
+  /* ---------- VERDICT PLATE ---------- */
+  .verdict{padding:64px 0}
+  .verdict-grid{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:18px;
+  }
+  .axis{
+    border:1px solid rgba(168,137,92,.32);
+    padding:26px 24px;border-radius:2px;
+    position:relative;
+  }
+  .axis .label{
+    font-family:"IBM Plex Mono",monospace;font-size:11px;
+    letter-spacing:.22em;text-transform:uppercase;color:var(--brass);
+  }
+  .axis .val{
+    font-family:"Fraunces",serif;font-size:30px;font-weight:500;
+    margin-top:10px;line-height:1.1;
+  }
+  .axis .scale{
+    margin-top:18px;height:6px;border-radius:3px;
+    background:linear-gradient(90deg,#3a3531,#A8895C);position:relative;
+  }
+  .axis .scale.warm{background:linear-gradient(90deg,#4a6a7a,#C18A55)}
+  .axis .scale.depth{background:linear-gradient(90deg,#E3D9C2,#2c2420)}
+  .axis .scale.chroma{background:linear-gradient(90deg,#7a7560,#c98e6a)}
+  .axis .dot{
+    position:absolute;top:50%;width:14px;height:14px;border-radius:50%;
+    background:var(--parchment);border:2px solid var(--ground);
+    transform:translate(-50%,-50%);box-shadow:0 0 0 1px rgba(168,137,92,.6)
+  }
+  .axis .note{margin-top:14px;font-size:13.5px;color:var(--ink-soft);line-height:1.45}
+
+  /* ---------- SECTION SCAFFOLD ---------- */
+  section{padding:60px 0;border-top:1px solid rgba(168,137,92,.22)}
+  .kicker{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;
+    letter-spacing:.28em;text-transform:uppercase;color:var(--brass);
+    margin-bottom:18px;display:flex;align-items:center;gap:14px;
+  }
+  .kicker::before{content:"";width:34px;height:1px;background:var(--brass)}
+  h2{
+    font-family:"Fraunces",serif;font-weight:500;
+    font-size:clamp(30px,4.6vw,46px);line-height:1.04;
+    letter-spacing:-.015em;margin-bottom:18px;
+  }
+  .lede{max-width:680px;color:var(--parchment-2);font-size:18px;margin-bottom:38px}
+  .lede strong{color:var(--parchment);font-weight:600}
+
+  /* ---------- COLORING ROW ---------- */
+  .coloring{display:flex;flex-wrap:wrap;gap:16px}
+  .chip{
+    flex:1;min-width:150px;border-radius:2px;overflow:hidden;
+    border:1px solid rgba(168,137,92,.25);background:var(--ground-2)
+  }
+  .chip .sw{height:120px}
+  .chip .cap{padding:14px 16px}
+  .chip .cap .t{font-size:14px;font-weight:600}
+  .chip .cap .h{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--brass);margin-top:4px}
+  .chip .cap .d{font-size:12.5px;color:var(--ink-soft);margin-top:8px;line-height:1.4}
+
+  /* ---------- HEADLINE FINDING (navy vs black) ---------- */
+  .finding{
+    background:var(--parchment);color:var(--ink);
+    border-radius:3px;padding:40px;display:grid;
+    grid-template-columns:1.1fr 1fr;gap:40px;align-items:center;
+  }
+  .finding h3{font-family:"Fraunces",serif;font-weight:500;font-size:30px;line-height:1.08;margin-bottom:14px}
+  .finding p{color:#5C544A;font-size:16px}
+  .finding p + p{margin-top:14px}
+  .versus{display:flex;gap:0;border-radius:3px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+  .versus div{flex:1;aspect-ratio:3/4;position:relative;display:flex;align-items:flex-end;padding:16px}
+  .versus div span{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;
+    letter-spacing:.08em;color:#fff;mix-blend-mode:difference;
+  }
+  .versus .bad{background:#000}
+  .versus .good{background:#2C3A4F}
+  .stamp{
+    position:absolute;top:14px;left:16px;font-family:"IBM Plex Mono",monospace;
+    font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+    color:#fff;mix-blend-mode:difference;
+  }
+
+  /* ---------- PALETTE GRID ---------- */
+  .palette{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+  .pcard{border-radius:2px;overflow:hidden;border:1px solid rgba(168,137,92,.2);background:var(--ground-2)}
+  .pcard .sw{height:96px}
+  .pcard .cap{padding:12px 13px 15px}
+  .pcard .cap .t{font-size:13.5px;font-weight:600;line-height:1.2}
+  .pcard .cap .h{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--brass);margin-top:5px}
+
+  /* ---------- GREEN LOGIC ---------- */
+  .logic{display:grid;grid-template-columns:300px 1fr;gap:48px;align-items:center}
+  .wheel{
+    width:280px;height:280px;border-radius:50%;justify-self:center;
+    background:conic-gradient(
+      #C13B2E 0deg,#C85A2E 30deg,#C98E3A 60deg,#C9B84A 90deg,
+      #8FA63E 120deg,#3F7A3C 150deg,#2F8C6B 180deg,#2E8C97 210deg,
+      #2E6FA0 240deg,#3D4FA0 270deg,#6B3FA0 300deg,#A03B7A 330deg,#C13B2E 360deg);
+    position:relative;box-shadow:inset 0 0 0 1px rgba(168,137,92,.4);
+  }
+  .wheel::after{content:"";position:absolute;inset:34%;border-radius:50%;background:var(--ground);box-shadow:inset 0 0 0 1px rgba(168,137,92,.4)}
+  .wheel .marker{position:absolute;width:18px;height:18px;border-radius:50%;border:2px solid var(--parchment);transform:translate(-50%,-50%);z-index:2}
+  .wheel .m-red{top:50%;left:0%;background:#C13B2E}
+  .wheel .m-green{top:50%;left:100%;background:#2F8C6B}
+  .wheel .axisline{position:absolute;top:50%;left:0;right:0;height:1px;background:var(--parchment);opacity:.55}
+  .logic h2{margin-bottom:14px}
+  .logic ul{list-style:none;margin-top:22px;display:flex;flex-direction:column;gap:12px}
+  .logic li{display:flex;gap:14px;align-items:flex-start;font-size:15.5px;color:var(--parchment-2)}
+  .logic li .b{width:22px;height:22px;border-radius:3px;flex-shrink:0;margin-top:2px;border:1px solid rgba(168,137,92,.3)}
+
+  /* ---------- RULES (best / careful / avoid) ---------- */
+  .rules{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+  .col h4{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.16em;
+    text-transform:uppercase;padding-bottom:12px;margin-bottom:16px;
+    border-bottom:1px solid rgba(168,137,92,.3);
+  }
+  .col.best h4{color:#9CC08A}
+  .col.care h4{color:#D6A06A}
+  .col.avoid h4{color:#D98A7E}
+  .swatchline{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .swatchline .s{width:34px;height:34px;border-radius:3px;flex-shrink:0;border:1px solid rgba(168,137,92,.25)}
+  .swatchline .txt .n{font-size:14px;font-weight:500}
+  .swatchline .txt .m{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-soft)}
+  .col .why{margin-top:16px;font-size:13.5px;color:var(--ink-soft);line-height:1.5}
+
+  /* ---------- SHOP LIST ---------- */
+  .shop{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+  .item{
+    display:grid;grid-template-columns:120px 1fr;
+    border:1px solid rgba(168,137,92,.25);border-radius:3px;overflow:hidden;
+    background:var(--ground-2);
+  }
+  .item .sw{position:relative}
+  .item .sw .pri{
+    position:absolute;bottom:10px;left:10px;
+    font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.12em;
+    color:#fff;mix-blend-mode:difference;
+  }
+  .item .body{padding:20px 22px}
+  .item .tag{
+    font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--brass);
+  }
+  .item .name{font-family:"Fraunces",serif;font-size:21px;font-weight:500;margin:7px 0 3px;line-height:1.12}
+  .item .brand{font-size:12.5px;color:var(--ink-soft);margin-bottom:11px}
+  .item .desc{font-size:14px;color:var(--parchment-2);line-height:1.5}
+  .item .desc b{color:var(--parchment);font-weight:600}
+
+  /* ---------- CLOSING NOTE ---------- */
+  .note-card{
+    border:1px solid rgba(168,137,92,.3);border-radius:3px;
+    padding:34px 38px;background:rgba(168,137,92,.06);
+  }
+  .note-card p{color:var(--parchment-2);font-size:15.5px}
+  .note-card p + p{margin-top:14px}
+
+  footer{padding:60px 0 80px;border-top:1px solid rgba(168,137,92,.22);text-align:center}
+  footer .f{font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft)}
+
+  /* reveal */
+  .reveal{opacity:0;transform:translateY(18px);transition:opacity .7s ease,transform .7s ease}
+  .reveal.in{opacity:1;transform:none}
+
+  @media (max-width:880px){
+    .verdict-grid,.palette{grid-template-columns:repeat(2,1fr)}
+    .finding,.logic,.shop{grid-template-columns:1fr;gap:28px}
+    .rules{grid-template-columns:1fr}
+    .wheel{width:220px;height:220px}
+    .item{grid-template-columns:90px 1fr}
+  }
+  @media (max-width:540px){
+    .verdict-grid,.palette{grid-template-columns:1fr}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .reveal{opacity:1;transform:none;transition:none}
+    html{scroll-behavior:auto}
+  }
+</style>
+</head>
+<body>
+
+<!-- MASTHEAD -->
+<header class="mast">
+  <div class="wrap">
+    <div class="eyebrow">Personal Color Analysis · Confidential</div>
+    <h1>The <em>Palette</em><br>Report</h1>
+    <p class="sub">A working color system for the heritage rebuild. Read it as a fabric merchant reads a swatch book: every block below is a precise, named reference you can carry into a shop.</p>
+    <div class="meta">
+      <span>SUBJECT&nbsp; <b>Nolán</b></span>
+      <span>SEASON&nbsp; <b>Soft Autumn</b></span>
+      <span>METHOD&nbsp; <b>Photo + paper / vein / metal</b></span>
+      <span>SEATTLE&nbsp; <b>WA</b></span>
+    </div>
+  </div>
+</header>
+
+<!-- VERDICT -->
+<div class="verdict">
+  <div class="wrap">
+    <div class="verdict-grid">
+      <div class="axis reveal">
+        <div class="label">Undertone</div>
+        <div class="val">Warm</div>
+        <div class="scale warm"><div class="dot" style="left:78%"></div></div>
+        <div class="note">The beard settles it. Auburn cast, peachy-fair skin. Not a cool note in the deck.</div>
+      </div>
+      <div class="axis reveal">
+        <div class="label">Depth</div>
+        <div class="val">Light&ndash;Medium</div>
+        <div class="scale depth"><div class="dot" style="left:38%"></div></div>
+        <div class="note">Fair, low natural contrast. Hard light/dark pairings overpower you rather than flatter.</div>
+      </div>
+      <div class="axis reveal">
+        <div class="label">Chroma</div>
+        <div class="val">Muted</div>
+        <div class="scale chroma"><div class="dot" style="left:30%"></div></div>
+        <div class="note">Saturated and icy colors read louder than your face. Softened, dusty tones sit with you.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CORING -->
+<section>
+  <div class="wrap">
+    <div class="kicker">Your coloring</div>
+    <h2>The three colors you already wear</h2>
+    <p class="lede">Every palette decision is reverse-engineered from these. The flush is the variable most analyses miss, and it is the one that actually drives your collar-height choices.</p>
+    <div class="coloring">
+      <div class="chip reveal"><div class="sw" style="background:#E6BBA0"></div><div class="cap"><div class="t">Skin</div><div class="h">#E6BBA0</div><div class="d">Peachy-warm, fair. Enough warmth that stark white reads clinical against it.</div></div></div>
+      <div class="chip reveal"><div class="sw" style="background:#8A4B30"></div><div class="cap"><div class="t">Beard</div><div class="h">#8A4B30</div><div class="d">Auburn. The single clearest signal that the whole deck runs warm.</div></div></div>
+      <div class="chip reveal"><div class="sw" style="background:#6E8FA6"></div><div class="cap"><div class="t">Eyes</div><div class="h">#6E8FA6</div><div class="d">Muted blue. The one place a softened, dusty blue earns its keep near the face.</div></div></div>
+      <div class="chip reveal"><div class="sw" style="background:#C56A5A"></div><div class="cap"><div class="t">Flush</div><div class="h">#C56A5A</div><div class="d">Real facial redness that climbs with heat and sun. Drives the green strategy below.</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- HEADLINE FINDING -->
+<section>
+  <div class="wrap">
+    <div class="kicker">The headline finding</div>
+    <div class="finding reveal">
+      <div>
+        <h3>Navy is your black. Not black.</h3>
+        <p>In the head-on shots, black drives the flush forward: the contrast is too hard for a light-medium, muted face, so you read tired and ruddy rather than fresh.</p>
+        <p>Swap to soft navy and the face grounds, the redness calms, the eye color wakes up. You own a closet of black tees. This is the one habit worth unwinding first, and the cheapest win on the list.</p>
+      </div>
+      <div class="versus">
+        <div class="bad"><span class="stamp">Against you</span><span class="mono">#000000 · black</span></div>
+        <div class="good"><span class="stamp">For you</span><span class="mono">#2C3A4F · soft navy</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CORE PALETTE -->
+<section>
+  <div class="wrap">
+    <div class="kicker">The deck · core palette</div>
+    <h2>Eleven colors that carry the wardrobe</h2>
+    <p class="lede">These integrate cleanly with what you own and with each other. Build from here. Brown leather over black, always.</p>
+    <div class="palette">
+      <div class="pcard reveal"><div class="sw" style="background:#F2EBDD"></div><div class="cap"><div class="t">Cream / Ecru</div><div class="h">#F2EBDD</div></div></div>
+      <div class="pcard reveal"><div class="sw" style="background:#D9CDB8"></div><div class="cap"><div class="t">Oatmeal</div><div class="h">#D9CDB8</div></div></div>
+      <div class="pcard reveal"><div class="sw" style="background:#C19A66"></div><div class="cap"><div class="t">Camel</div><div class="h">#C19A66</div></div></div>
+      <div class="pcard reveal"><div class="sw" style="background:#8A5A38"></div><div class="cap"><div class="t">Tobacco</div><div class="h">#8A5A38</div></div></div>
+      <div class="pcard reveal"><div class="sw" style="background:#6B4A2E"></div><div class="cap"><div class="t">Brown Leather</div><div class="h">#6B4A2E</div></div></div>
+      <div class="pcard reveal"><div class="sw" style="background:#3A3531"></div><div class="cap"><div class="t">Warm Charcoal</div><div class="h">#3A3531</div></div></div>
+      <div class="pcard reveal"><div class="sw" style="background:#2C3A4F"></div><div class="cap"><div class="t">Soft Navy</div><div class="h">#2C3A4F</div></div></div>
+      <div class="pcard reveal"><div class="sw" style="background:#1F5563"></div><div class="cap"><div class="t">Petrol</div><div class="h">#1F5563</div></div></div>
+      <div class="pcard reveal"><div class="sw" style="background:#5C5A37"></div><div class="cap"><div class="t">Olive</div><div class="h">#5C5A37</div></div></div>
+      <div class="pcard reveal"><div class="sw" style="background:#2F4A38"></div><div class="cap"><div class="t">Forest</div><div class="h">#2F4A38</div></div></div>
+      <div class="pcard reveal"><div class="sw" style="background:#6E2F3A"></div><div class="cap"><div class="t">Burgundy</div><div class="h">#6E2F3A</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- GREEN LOGIC -->
+<section>
+  <div class="wrap logic">
+    <div class="wheel reveal">
+      <div class="axisline"></div>
+      <div class="marker m-red"></div>
+      <div class="marker m-green"></div>
+    </div>
+    <div>
+      <div class="kicker">The secret weapon</div>
+      <h2>Green cancels red</h2>
+      <p class="lede" style="margin-bottom:0">Green sits directly opposite red on the wheel, so worn at collar height it visually neutralizes your flush. You look calmer-skinned without touching your skin. This is the move most warm-autumn guys never get told.</p>
+      <ul>
+        <li><span class="b" style="background:#2F4A38"></span><span><b style="color:var(--parchment)">Forest</b> and <b style="color:var(--parchment)">olive</b> are the strongest neutralizers. You own neither. Fix that first.</span></li>
+        <li><span class="b" style="background:#1F5563"></span><span><b style="color:var(--parchment)">Petrol</b> and <b style="color:var(--parchment)">soft teal</b> sit just off the green axis and earn the same edge.</span></li>
+        <li><span class="b" style="background:#A6502E"></span><span>The flip side: <b style="color:var(--parchment)">rust, terracotta, burnt orange</b> echo your ruddiness if worn right at the throat. Keep them below the collar.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- RULES -->
+<section>
+  <div class="wrap">
+    <div class="kicker">Near the face</div>
+    <h2>Where it actually counts</h2>
+    <p class="lede">Everything below the collar is forgiving. At the throat, in knits, scarves, and open collars, these rules are strict.</p>
+    <div class="rules">
+      <div class="col best reveal">
+        <h4>Lead with</h4>
+        <div class="swatchline"><span class="s" style="background:#2C3A4F"></span><div class="txt"><div class="n">Soft navy</div><div class="m">#2C3A4F</div></div></div>
+        <div class="swatchline"><span class="s" style="background:#2F4A38"></span><div class="txt"><div class="n">Forest</div><div class="m">#2F4A38</div></div></div>
+        <div class="swatchline"><span class="s" style="background:#5C5A37"></span><div class="txt"><div class="n">Olive</div><div class="m">#5C5A37</div></div></div>
+        <div class="swatchline"><span class="s" style="background:#1F5563"></span><div class="txt"><div class="n">Petrol</div><div class="m">#1F5563</div></div></div>
+        <div class="swatchline"><span class="s" style="background:#F2EBDD"></span><div class="txt"><div class="n">Cream</div><div class="m">#F2EBDD</div></div></div>
+        <div class="swatchline"><span class="s" style="background:#C19A66"></span><div class="txt"><div class="n">Camel</div><div class="m">#C19A66</div></div></div>
+        <div class="why">These ground the face and quiet the redness. Default to these for crewnecks and scarves.</div>
+      </div>
+      <div class="col care reveal">
+        <h4>Use with care</h4>
+        <div class="swatchline"><span class="s" style="background:#A6502E"></span><div class="txt"><div class="n">Rust</div><div class="m">#A6502E</div></div></div>
+        <div class="swatchline"><span class="s" style="background:#B5613B"></span><div class="txt"><div class="n">Terracotta</div><div class="m">#B5613B</div></div></div>
+        <div class="swatchline"><span class="s" style="background:#C0682B"></span><div class="txt"><div class="n">Burnt orange</div><div class="m">#C0682B</div></div></div>
+        <div class="swatchline"><span class="s" style="background:#D9CDB8"></span><div class="txt"><div class="n">Pale pink linen</div><div class="m">#E7C9BD</div></div></div>
+        <div class="why">Textbook autumn and genuinely yours, but they sit close to your flush. Wear as trousers, jackets, lower layers. Not at the open collar.</div>
+      </div>
+      <div class="col avoid reveal">
+        <h4>Keep off the face</h4>
+        <div class="swatchline"><span class="s" style="background:#000000"></span><div class="txt"><div class="n">Pure black</div><div class="m">#000000</div></div></div>
+        <div class="swatchline"><span class="s" style="background:#FFFFFF"></span><div class="txt"><div class="n">Stark white</div><div class="m">#FFFFFF</div></div></div>
+        <div class="swatchline"><span class="s" style="background:#1E5FFF"></span><div class="txt"><div class="n">Electric blue</div><div class="m">#1E5FFF</div></div></div>
+        <div class="swatchline"><span class="s" style="background:#E0231F"></span><div class="txt"><div class="n">True red</div><div class="m">#E0231F</div></div></div>
+        <div class="swatchline"><span class="s" style="background:#AED4F0"></span><div class="txt"><div class="n">Baby blue</div><div class="m">#AED4F0</div></div></div>
+        <div class="swatchline"><span class="s" style="background:#D9CFEA"></span><div class="txt"><div class="n">Icy lavender</div><div class="m">#D9CFEA</div></div></div>
+        <div class="why">Too hard or too cold for a light, muted, warm face. They push the flush forward by contrast.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SHOP LIST -->
+<section>
+  <div class="wrap">
+    <div class="kicker">First buys · against the gaps</div>
+    <h2>What to put in the cart</h2>
+    <p class="lede">Ordered by impact. The first three are colors your closet is missing entirely, and they map straight onto the findings above. Color blocks below are colorimetrically exact; the brand notes point at the right fabric and cut for your build.</p>
+    <div class="shop">
+      <div class="item reveal">
+        <div class="sw" style="background:#2F4A38"><span class="pri">#2F4A38</span></div>
+        <div class="body">
+          <div class="tag">Redness killer · 01</div>
+          <div class="name">Forest crewneck</div>
+          <div class="brand">Taylor Stitch heathered wool · COS fine-gauge</div>
+          <div class="desc">The strongest neutralizer in the deck, and you don't own it. <b>Fine gauge, crew, at the collar.</b> This is the single highest-impact addition.</div>
+        </div>
+      </div>
+      <div class="item reveal">
+        <div class="sw" style="background:#5C5A37"><span class="pri">#5C5A37</span></div>
+        <div class="body">
+          <div class="tag">Redness killer · 02</div>
+          <div class="name">Olive crewneck</div>
+          <div class="brand">COS · Mango · Octubre</div>
+          <div class="desc">The everyday version of the forest. Softer, more wearable with camel and oatmeal. <b>Buy both greens, not one.</b></div>
+        </div>
+      </div>
+      <div class="item reveal">
+        <div class="sw" style="background:#2C3A4F"><span class="pri">#2C3A4F</span></div>
+        <div class="body">
+          <div class="tag">Default swap · 03</div>
+          <div class="name">Soft-navy crew tee</div>
+          <div class="brand">Reigning Champ · Everlane · Quince</div>
+          <div class="desc">Replaces the black-tee reflex. <b>Heavier cotton, clean crew, no logo.</b> Buy two and let them retire the black ones.</div>
+        </div>
+      </div>
+      <div class="item reveal">
+        <div class="sw" style="background:#1F5563"><span class="pri">#1F5563</span></div>
+        <div class="body">
+          <div class="tag">Collar integration · 04</div>
+          <div class="name">Petrol / teal scarf</div>
+          <div class="brand">Colorful Standard merino · Quince cashmere</div>
+          <div class="desc">Pulls a neutralizing color to the throat over open-collar shirts and crews. <b>Medium-weight wool, back-drape throw.</b></div>
+        </div>
+      </div>
+      <div class="item reveal">
+        <div class="sw" style="background:#C19A66"><span class="pri">#C19A66</span></div>
+        <div class="body">
+          <div class="tag">Warm neutral · 05</div>
+          <div class="name">Camel fine-gauge crew</div>
+          <div class="brand">Massimo Dutti · Taylor Stitch</div>
+          <div class="desc">Your warmest flattering neutral. <b>Tucks into pleated trousers cleanly</b> and reads heritage without trying.</div>
+        </div>
+      </div>
+      <div class="item reveal">
+        <div class="sw" style="background:#D9CDB8"><span class="pri">#D9CDB8</span></div>
+        <div class="body">
+          <div class="tag">Replaces white · 06</div>
+          <div class="name">Oatmeal button-down</div>
+          <div class="brand">Charles Tyrwhitt linen · Taylor Stitch</div>
+          <div class="desc">Cream and oatmeal over stark white, every time. <b>Open collar, warm tone</b> that flatters rather than flattens.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CLOSING NOTE -->
+<section>
+  <div class="wrap">
+    <div class="kicker">On method</div>
+    <div class="note-card reveal">
+      <p>One honest caveat: phone cameras and indoor bulbs distort warmth, and your real facial redness muddies a few of the marginal calls, exactly how warm to push, and where the petrol-versus-teal line sits.</p>
+      <p>The cleanest confirmation is still the paper test. Hold stark white next to cream under a window in indirect daylight and watch which one greys you out. That settles whether you can flirt with the cooler soft-summer border colors or should stay fully warm. My read says stay warm.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="f">The Palette Report · Soft Autumn · Warm · Muted</div>
+  </div>
+</footer>
+
+<script>
+  const io=new IntersectionObserver((es)=>{
+    es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})
+  },{threshold:.12});
+  document.querySelectorAll('.reveal').forEach((el,i)=>{
+    el.style.transitionDelay=(i%5*40)+'ms';
+    io.observe(el);
+  });
+</script>
+</body>
+</html>

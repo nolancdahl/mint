@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { CLOSET_KEY, WISHLIST_KEY, INSPO_KEY } from './lib/constants'
 import { loadJson, saveJson } from './lib/storage'
-import { uploadToFirestore, subscribeToAll, reconcileCollectionsOnSignIn, setSyncUser, subscribeToProfileKeys, reconcileProfileOnSignIn } from './lib/sync'
+import { uploadToFirestore, reconcileCollectionsOnSignIn, setSyncUser, reconcileProfileOnSignIn } from './lib/sync'
 import { bridgeSharedProfile } from './lib/sharedProfile'
 import { useSyncedJson } from './lib/useSyncedJson'
 import { useAuth, LoginScreen, handleSignOut } from './components/AuthGate'
@@ -170,19 +170,15 @@ function AppShell() {
     // Merge cloud + local on sign-in (NEVER blindly overwrite the cloud), THEN
     // start real-time subscriptions. This prevents a fresh/stale device or a new
     // app version from wiping data that lives in the cloud.
-    let unsub = () => {}, unsubProfile = () => {}, unsubShared = () => {}
-    let cancelled = false
+    let unsubShared = () => {}
     ;(async () => {
       await reconcileCollectionsOnSignIn(user.uid, collHandlers)
       await reconcileProfileOnSignIn(user.uid)
-      if (cancelled) return
-      unsub = subscribeToAll(user.uid, collHandlers)
-      unsubProfile = subscribeToProfileKeys(user.uid)
       // Bridge to the homebase shared profile doc — keeps Height / Weight / Age / photo
       // in sync with sibling apps (e.g. gym) that read & write the same identity.
       unsubShared = bridgeSharedProfile(user.uid)
     })()
-    return () => { cancelled = true; unsub(); unsubProfile(); unsubShared() }
+    return () => { unsubShared() }
   }, [user])
 
   useEffect(() => {

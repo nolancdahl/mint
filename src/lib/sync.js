@@ -219,3 +219,14 @@ export const subscribeToProfileKeys = (uid) => {
   )
   return () => unsubs.forEach((fn) => fn())
 }
+
+export const refetchOnVisibility = (uid) => {
+  const handler = () => {
+    if (document.visibilityState === 'visible') {
+      reconcileCollectionsOnSignIn(uid)
+      reconcileProfileOnSignIn(uid)
+    }
+  }
+  document.addEventListener('visibilitychange', handler)
+  return () => document.removeEventListener('visibilitychange', handler)
+}
